@@ -387,12 +387,18 @@ def main():
     maint_sub = (f"last run {days_ago:.1f}d ago · next due in {due_in:.1f}d"
                  if days_ago is not None else "state unknown")
 
+    # skillboard plugin wiring status (drives per-card badges + broken-install warning)
+    sb_enabled = bool((cfg.get("enabledPlugins") or {}).get("skillboard@skillboard"))
+    sb_caches = glob.glob(PLUGIN_GLOB)
+    sb_ver = os.path.basename(newest_cache(sb_caches)) if sb_caches else ""
+    sb_ok = sb_enabled and bool(sb_ver)
+    inst_badge = ('<span class="pill ok">&#10003; installed</span>' if sb_ok else
+                  '<span class="pill" style="color:var(--warn);border-color:var(--warn)">not active</span>')
+
     def card(n, d, p):
-        star = ' style="border-color:var(--acc)"' if n == "skillboard-init" else ""
-        here = '<span class="pill" style="color:var(--acc);border-color:var(--acc)">START HERE</span> ' if n == "skillboard-init" else ""
         link = (f"https://github.com/{REPO}/blob/main/skills/{n}/SKILL.md" if REPO else p)
-        return (f'<div class="card"{star}><div class="card-head">{here}'
-                f'<span class="mono card-name">{esc(n)}</span>'
+        return (f'<div class="card"><div class="card-head">'
+                f'<span class="mono card-name">{esc(n)}</span> {inst_badge}'
                 f'<button class="copy" data-link="{esc(link)}" onclick="cp(this)">copy link</button></div>'
                 f'<p class="dim card-desc">{esc(d)}</p>'
                 f'<p class="card-url">{esc(link)}</p></div>')
@@ -433,20 +439,14 @@ def main():
     hooks_rows_html = "".join(
         f'<tr><td class="dim">{esc(s)}</td><td class="mono">{esc(e)}</td><td class="num">{n}</td></tr>'
         for s, e, n in hk)
-    # Skills-tab install status: is the skillboard plugin actually wired up on this machine?
-    sb_enabled = bool((cfg.get("enabledPlugins") or {}).get("skillboard@skillboard"))
-    sb_caches = glob.glob(PLUGIN_GLOB)
-    sb_ver = os.path.basename(newest_cache(sb_caches)) if sb_caches else ""
-    sb_hooks = sum(n for s, _, n in hk if s == "skillboard")
-    if sb_enabled and sb_ver and plug_sk:
-        plug_status = (f'<div class="banner ok-b">&#10003; skillboard v{esc(sb_ver)} enabled — '
-                       f'{len(plug_sk)} skills in cache (register as <span class="mono">skillboard:&lt;name&gt;</span>), '
-                       f'{sb_hooks} hooks active. Restart Claude Code after install/update to apply.</div>')
+    # Skills-tab warning only when the install is actually broken; healthy = per-card badges
+    if sb_ok and plug_sk:
+        plug_status = ""
     else:
         missing = ("not in enabledPlugins" if not sb_enabled else
                    "no cache dir" if not sb_ver else "no skills in cache")
         plug_status = (f'<div class="banner warn-b">&#9888; skillboard plugin not fully installed ({esc(missing)}) — '
-                       f'run <span class="mono">/plugin install skillboard@skillboard</span> then restart.</div>')
+                       f'run <span class="mono">/plugin install skillboard@skillboard</span> then <span class="mono">/reload-plugins</span>.</div>')
 
     brain_rows = "".join(f'<tr><td>{esc(k)}</td><td class="num">{v}</td></tr>' for k, v in br.items())
     plan_rows = "".join(
@@ -579,7 +579,7 @@ input.filter:focus {{ outline:2px solid var(--blue); outline-offset:1px }}
 <h2>Local skills ({len(loc_sk)})</h2>
 <input class="filter" placeholder="filter skills…" oninput="flt(this,'sktab')">
 <div class="wrap"><table id="sktab">{skills_rows}</table></div>
-<p class="note">Plugin skills ship with skillboard (copy link to share); local skills live only on this machine. Click a local name to open in VS Code.</p>
+<p class="note">&#10003; installed = plugin enabled + skill in cache v{esc(sb_ver)}, registered as <span class="mono">skillboard:&lt;name&gt;</span> · after install/update run <span class="mono">/reload-plugins</span>. Local skills live only on this machine — click a name to open in VS Code.</p>
 </section>
 
 <section id="setup">

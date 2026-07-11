@@ -1,0 +1,58 @@
+---
+name: persisting-plans
+description: Use when a plan has just been formed or approved — after plan mode, after writing an implementation plan, before starting multi-step work, or when a spawned agent produces a plan. Also use when resuming work to check for an existing plan. Triggers on "save the plan", "persist the plan", starting execution of any plan, and session start in a repo that has a .doc folder.
+---
+
+# Persisting Plans
+
+Every plan lives on disk, not just in conversation. Context gets compacted, sessions end, agents change — a plan that exists only in chat is lost work.
+
+## The Rule
+
+After forming or updating ANY plan (plan mode, written plan, agent-produced plan): write it to `.doc/` at the root of each active repo/app before starting execution.
+
+Note: plan-mode plans auto-save into `.doc/` via the `plansDirectory` setting — for those, don't duplicate the file; ADD the Status / Current position / Decisions fields below to the auto-saved file and keep them updated.
+
+```bash
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+mkdir -p "$ROOT/.doc"
+```
+
+One `.doc/` per active repo. If work spans multiple repos, each gets its own plan file.
+
+## File format
+
+Name: `.doc/plan-<short-kebab-topic>.md` (stable name, update in place — no timestamps in filename).
+
+```markdown
+# Plan: <title>
+
+**Status:** planning | in-progress | blocked | done
+**Updated:** <ISO timestamp>
+**Intent:** <one sentence — why this work exists>
+
+## Steps
+- [ ] step — <file/symbol it touches>
+- [x] done step — <what was verified>
+
+## Current position
+<exactly where execution stands; what the next agent should do first>
+
+## Decisions & constraints
+<choices made + why, user corrections, assumptions>
+```
+
+## Keep it live
+
+- Tick checkboxes and update **Status** / **Current position** as steps complete — a stale plan misleads the next agent worse than no plan.
+- On resume: read existing `.doc/plan-*.md` FIRST before re-planning.
+- Mark abandoned plans `Status: done` or delete them; don't leave zombies.
+- Plans reference files by path; don't paste diffs or file contents.
+
+## Red flags
+
+- "The plan is short, I'll keep it in my head" → write it anyway.
+- "I'll save it after the first step" → save BEFORE executing.
+- "Plan mode already showed the user" → chat is not disk. Persist it.
+
+Related: `handoff` packages a whole session; this skill persists just the plan artifact and is cheaper — use both when a session ends mid-plan.

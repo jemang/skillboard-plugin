@@ -1,0 +1,8 @@
+{
+  "name": "skillboard",
+  "description": "Jemang's portable agent setup: continuity skills (handoff, persisting-plans), memory index + recall, self-learning skill factory, dev docs, weekly memory maintenance, and the Skillboard dashboard. One /skillboard-init bootstraps a fresh machine.",
+  "version": "0.4.0",
+  "author": {
+    "name": "Jemang"
+  }
+}

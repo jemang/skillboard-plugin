@@ -1,0 +1,23 @@
+{
+  "skill_name": "decision-routes",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I'm building a real-time chat feature for a web app, expecting maybe 5k concurrent users at peak. I'm a solo dev, decent with Node, and I've got about 6 weeks. Should I roll my own WebSocket server, use a managed realtime service like Supabase/Firebase, or something else? Help me decide which way to go.",
+      "expected_output": "2-3 distinct routes (e.g. self-hosted WebSockets, managed realtime BaaS, hosted pub/sub like Pusher/Ably) with gaps, difficulties, research-grounded success rates in a table + writeup, and one recommendation tied to solo-dev/6-week/5k-user context.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I'm starting a personal finance tracker MVP. I can't decide what to build first for getting transactions in: manual entry, bank sync through Plaid, or CSV import from bank statements. Which direction should I start with?",
+      "expected_output": "2-3 distinct product routes (manual entry, Plaid bank-sync, CSV import) with gaps, difficulties (cost, compliance, friction), success rates grounded in evidence, comparison table + writeup, and a recommendation for an MVP.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "We're a 3-person team, all strong in Python, basically no frontend specialists. We have a Django REST API and need to add a real UI. I'm torn between a React SPA, going with HTMX, or just server-rendered Django templates. Which approach fits us best?",
+      "expected_output": "2-3 distinct routes (React SPA, HTMX, server-rendered templates) with gaps, difficulties, success rates grounded in adoption/maintenance evidence, table + writeup, and a recommendation tied to the Python-heavy small team with no frontend specialists.",
+      "files": []
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v code-review-graph >/dev/null 2>&1 && code-review-graph status; exit 0",
+            "timeout": 5,
+            "statusMessage": "Code-review-graph status"
+          },
+          {
+            "type": "command",
+            "command": "ROOT=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"; FILES=$(ls \"$ROOT\"/.doc/*.md \"$ROOT/handoff.md\" 2>/dev/null); if [ -n \"$FILES\" ]; then echo \"CONTINUITY FILES — read these before planning or resuming work, and keep their status updated:\"; echo \"$FILES\"; fi",
+            "timeout": 10,
+            "statusMessage": "Checking for plan/handoff files"
+          },
+          {
+            "type": "command",
+            "command": "command -v codegraph >/dev/null 2>&1 || exit 0; ROOT=\"$(git rev-parse --show-toplevel 2>/dev/null)\" || exit 0; [ -z \"$ROOT\" ] && exit 0; M=\"\"; [ ! -d \"$ROOT/.codegraph\" ] && M=\"codegraph init -i\"; command -v code-review-graph >/dev/null 2>&1 && [ ! -d \"$ROOT/.code-review-graph\" ] && M=\"$M${M:+  and  }code-review-graph build\"; [ -n \"$M\" ] && echo \"CODE INDEX MISSING in $ROOT — offer the user (do not auto-run) to build it with: $M\"; exit 0",
+            "timeout": 10,
+            "statusMessage": "Checking code indexes"
+          },
+          {
+            "type": "command",
+            "command": "F=\"$HOME/.local/state/remember/processed-claude-code\"; D=\"$HOME/.claude/plugins/cache/remember-md\"; [ -d \"$D\" ] || exit 0; if [ ! -f \"$F\" ] || [ -n \"$(find \"$F\" -mtime +7 2>/dev/null)\" ]; then echo \"WEEKLY MEMORY MAINTENANCE OVERDUE: /remember:process last ran >7 days ago (or never). Remind the user to run /remember:process (pick 2-3 meaningful sessions), then /remember:evolve.\"; fi",
+            "timeout": 10,
+            "statusMessage": "Checking weekly memory maintenance"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/memory-index.py\" --quiet; python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/setup-dashboard.py\" >/dev/null 2>&1",
+            "timeout": 45,
+            "async": true,
+            "statusMessage": "Refreshing memory index + Skillboard"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"; echo \"IMPORTANT: preserve verbatim in the summary: active plan status, ordered next steps, key decisions, unverified work, and the paths of any $ROOT/.doc/*.md and $ROOT/handoff.md files.\"",
+            "timeout": 10,
+            "statusMessage": "Injecting plan-preservation instructions"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ROOT=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"; FILES=$(ls \"$ROOT\"/.doc/*.md \"$ROOT/handoff.md\" 2>/dev/null); if [ -n \"$FILES\" ]; then echo \"CONTEXT WAS COMPACTED. Before anything else: re-read these files and update their Status/Current-position to match reality:\"; echo \"$FILES\"; fi",
+            "timeout": 10,
+            "statusMessage": "Pointing at plan/handoff files after compaction"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v code-review-graph >/dev/null 2>&1 && code-review-graph detect-changes --brief; exit 0",
+            "timeout": 10,
+            "statusMessage": "Change detection"
+          },
+          {
+            "type": "command",
+            "command": "command -v rtk >/dev/null 2>&1 && rtk hook claude; exit 0",
+            "timeout": 10,
+            "statusMessage": "RTK rewrite"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v code-review-graph >/dev/null 2>&1 && code-review-graph update --skip-flows; exit 0",
+            "timeout": 10,
+            "statusMessage": "Graph update"
+          }
+        ]
+      }
+    ]
+  }
+}

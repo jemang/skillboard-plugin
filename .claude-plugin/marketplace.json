@@ -1,0 +1,13 @@
+{
+  "name": "skillboard",
+  "owner": {
+    "name": "Jemang"
+  },
+  "plugins": [
+    {
+      "name": "skillboard",
+      "source": "./",
+      "description": "Portable agent setup: continuity, memory index + recall, dashboard, bootstrap."
+    }
+  ]
+}

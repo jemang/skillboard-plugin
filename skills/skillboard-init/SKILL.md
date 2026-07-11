@@ -1,6 +1,6 @@
 ---
 name: skillboard-init
-description: "Bootstrap or verify the Skillboard setup on this machine — run after installing the skillboard plugin on a NEW machine, or anytime to health-check the install. Triggers: '/skillboard-init', 'set up skillboard', 'bootstrap my agent setup', 'configure skillboard on this machine'. Idempotent: re-running reports 'already configured' per step and fixes only what's missing. NOT for generating repo docs (dev-docs) and NOT for the dashboard itself (run the dash alias)."
+description: "Bootstrap or verify the Skillboard setup on this machine — run after installing the skillboard plugin on a NEW machine, or anytime to health-check the install. Triggers: '/skillboard-init', 'set up skillboard', 'bootstrap my agent setup', 'configure skillboard on this machine'. Idempotent: re-running reports 'already configured' per step and fixes only what's missing. NOT for generating repo docs (dev-docs), NOT for the dashboard itself (run the skillboard alias), and NOT for changing the plugin's own code/skills/hooks (skillboard-maintain)."
 ---
 
 # Skillboard Init — bootstrap a machine

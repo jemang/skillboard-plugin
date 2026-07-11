@@ -20,14 +20,12 @@ Portable Claude Code setup — skills, hooks, memory index, and the Skillboard d
 
 ## Install (new machine)
 
-```bash
-gh auth login        # private repo — auth first
-```
+Private repo — any working git auth is enough (SSH key already set up, or HTTPS credentials, or `gh auth login`). No `gh` dependency.
 
 In Claude Code:
 
 ```
-/plugin marketplace add <user>/skillboard
+/plugin marketplace add git@github.com:jemang/skillboard-plugin.git
 /plugin install skillboard@skillboard
 /skillboard-init
 ```

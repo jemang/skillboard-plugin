@@ -26,18 +26,18 @@ If missing, ask the user for values then write (defaults shown):
 
 - `dev_root`: where their repos live (continuity + plan scanning).
 - `brain_dir`: remember-plugin brain path, `""` if they don't use it.
-- `repo`: `owner/skillboard` GitHub path — powers dashboard copy-link cards; `""` disables the links.
+- `repo`: `owner/repo` GitHub path (e.g. `jemang/skillboard-plugin`) — powers dashboard copy-link cards; `""` disables the links.
 
 ### 3. Script shims at `~/.claude/scripts/`
 
-The plugin owns the real scripts at `$ROOT/scripts/`. Stable local paths (used by the `dash` alias and the memory-recall skill) are 2-line shims. For each of `memory-index.py`, `setup-dashboard.py`: if `~/.claude/scripts/<name>` is missing OR is not a shim (no `SKILLBOARD-SHIM` marker), write:
+The plugin owns the real scripts at `$ROOT/scripts/`. Stable local paths (used by the `skillboard` alias and the memory-recall skill) are 2-line shims. For each of `memory-index.py`, `setup-dashboard.py`: if `~/.claude/scripts/<name>` is missing OR is not a shim (no `SKILLBOARD-SHIM` marker), write:
 
 ```python
 #!/usr/bin/env python3
 # SKILLBOARD-SHIM — real script lives in the skillboard plugin cache
 import glob, os, runpy, sys
-c = sorted(glob.glob(os.path.expanduser("~/.claude/plugins/cache/skillboard/skillboard/*/scripts/SCRIPTNAME")))
-sys.argv[0] = c[-1]; runpy.run_path(c[-1], run_name="__main__")
+c = max(glob.glob(os.path.expanduser("~/.claude/plugins/cache/skillboard/skillboard/*/scripts/SCRIPTNAME")), key=os.path.getmtime)
+sys.argv[0] = c; runpy.run_path(c, run_name="__main__")
 ```
 
 (replace `SCRIPTNAME`). If an old full copy exists, ask before replacing.

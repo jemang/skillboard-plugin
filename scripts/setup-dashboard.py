@@ -332,6 +332,7 @@ def main():
 
     prev = safe(load_prev, {})
     n_hooks = sum(n for _, _, n in hk)
+    n_hooks_sb = sum(n for s, _, n in hk if s == "skillboard")
     safe(lambda: save_snapshot({"skills": len(sk), "hooks": n_hooks,
                                 "plugins": len(plugins), "mem": mem_total,
                                 "corpus": corpus, "ts": gen_epoch}), None)
@@ -502,6 +503,7 @@ td.rst {{ width:15ch; text-align:right; font-size:12px; white-space:nowrap }}
 .card {{ background:var(--s2); border:1px solid var(--line); border-radius:10px; padding:12px 14px }}
 .card-head {{ display:flex; align-items:center; gap:8px }}
 .card-name {{ font-weight:650; flex:1 }}
+.card-desc.full {{ display:block; -webkit-line-clamp:unset }}
 .card-desc {{ font-size:12.5px; margin:6px 0 4px; display:-webkit-box; -webkit-line-clamp:3;
   -webkit-box-orient:vertical; overflow:hidden }}
 .card-url {{ font-size:10.5px; color:var(--ink3); word-break:break-all; font-family:ui-monospace,Menlo,monospace }}
@@ -565,6 +567,7 @@ input.filter:focus {{ outline:2px solid var(--blue); outline-offset:1px }}
 <a data-tab="memory">Memory<span class="badge{' warn-d' if (days_ago is None or days_ago > 7) else ''}">{mem_total}</span></a>
 <a data-tab="skills">Skills<span class="badge">{len(sk)}</span></a>
 <a data-tab="plans">Plans<span class="badge">{len(pl)}</span></a>
+<a data-tab="how">How it works</a>
 <a data-tab="setup">Setup</a>
 </nav>
 
@@ -598,6 +601,49 @@ input.filter:focus {{ outline:2px solid var(--blue); outline-offset:1px }}
 <input class="filter" placeholder="filter skills…" oninput="flt(this,'sktab')">
 <div class="wrap"><table id="sktab">{skills_rows}</table></div>
 <p class="note">&#10003; installed = plugin enabled + skill in cache v{esc(sb_ver)}, registered as <span class="mono">skillboard:&lt;name&gt;</span> · after install/update run <span class="mono">/reload-plugins</span>. Local skills live only on this machine — click a name to open in VS Code.</p>
+</section>
+
+<section id="how">
+<h2>Why this plugin exists</h2>
+<div class="cards">
+<div class="card"><div class="card-head"><span class="card-name">Never lose work</span></div>
+<p class="dim card-desc full">Plans persist in each repo's <span class="mono">.doc/</span> + <span class="mono">handoff.md</span>. Compaction hooks preserve plan state; every session start points the agent back at unfinished work.</p></div>
+<div class="card"><div class="card-head"><span class="card-name">Instant recall</span></div>
+<p class="dim card-desc full">One FTS index over all {mem_total} memory files (auto-memory, brain, repo gotchas, plans). "What did we decide about X?" answered in 2 tool calls instead of a grep hunt.</p></div>
+<div class="card"><div class="card-head"><span class="card-name">Runs itself</span></div>
+<p class="dim card-desc full">Index + this dashboard regenerate automatically each session start — async, fail-open, zero commands. Weekly memory maintenance nags only when overdue.</p></div>
+<div class="card"><div class="card-head"><span class="card-name">Portable + weak-model safe</span></div>
+<p class="dim card-desc full">One private repo installs the whole setup on any machine (3 commands, see Setup). Skill descriptions are collision-free so even smaller models route correctly.</p></div>
+</div>
+
+<h2>Every session start — automatic, no commands</h2>
+<table>
+<tr><td class="mono">~/.claude/memory-index.db</td><td class="dim">memory index refreshed from all homes (files stay the only truth — index is disposable)</td></tr>
+<tr><td class="mono">~/.claude/skillboard.html</td><td class="dim">this dashboard, regenerated with fresh data + delta arrows vs last snapshot</td></tr>
+<tr><td>Continuity pointer</td><td class="dim">if the repo has <span class="mono">.doc/</span> plans or <span class="mono">handoff.md</span>, the agent is told to read them before working</td></tr>
+<tr><td>Maintenance nag</td><td class="dim">reminder to run <span class="mono">/remember:process</span> when last run &gt;7 days ago — silent otherwise</td></tr>
+<tr><td>Code-index offer</td><td class="dim">offers <span class="mono">codegraph init</span> in repos missing an index (only if codegraph installed)</td></tr>
+</table>
+<p class="note">All hooks fail open: a missing optional tool (rtk, codegraph, code-review-graph, remember) = silent no-op, never a broken session. Same chain also fires after each compaction.</p>
+
+<h2>Hook map — {n_hooks_sb} hooks, what fires when</h2>
+<table class="half">
+<tr><td class="mono">SessionStart</td><td class="dim">the 5 items above</td></tr>
+<tr><td class="mono">PreCompact / PostCompact</td><td class="dim">save plan-state pointers before context compaction, restore them after</td></tr>
+<tr><td class="mono">PreToolUse (Bash)</td><td class="dim">rtk token-saving rewrite + code-review-graph change detection (both guarded)</td></tr>
+<tr><td class="mono">PostToolUse (Edit/Write)</td><td class="dim">code-review-graph incremental update (guarded)</td></tr>
+</table>
+
+<h2>Where the code lives</h2>
+<table>
+<tr><td>Source of truth</td><td class="mono">github.com/{esc(REPO or "<owner>/<repo>")} → local clone</td></tr>
+<tr><td>Installed copy</td><td class="mono">~/.claude/plugins/cache/skillboard/skillboard/&lt;version&gt;/</td><td class="dim">point-in-time copy; re-syncs only on version bump + plugin update</td></tr>
+<tr><td>Stable entry points</td><td class="mono">~/.claude/scripts/*.py</td><td class="dim">2-line shims that always run the newest cache version</td></tr>
+<tr><td>Machine config</td><td class="mono">~/.claude/skillboard.json</td><td class="dim">dev_root, brain_dir, corpus_trigger, repo — set by /skillboard-init</td></tr>
+</table>
+
+<h2>Changing the plugin</h2>
+<p class="dim">Edit the repo → bump <span class="mono">version</span> in plugin.json → <span class="mono">claude plugin update skillboard@skillboard</span> → <span class="mono">/reload-plugins</span>. Editing the cache or shims does nothing (overwritten). Full playbook: local <span class="mono">skillboard-maintain</span> skill.</p>
 </section>
 
 <section id="setup">

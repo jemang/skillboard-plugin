@@ -35,6 +35,11 @@ TRIGGER = int(CFG.get("corpus_trigger") or 50)
 PLUGIN_GLOB = os.path.join(H, ".claude", "plugins", "cache", "skillboard", "skillboard", "*")
 
 
+def newest_cache(paths, up=0):
+    """Pick highest plugin version numerically; the version dir sits `up` levels above each path."""
+    return max(paths, key=lambda p: [int(x) for x in re.findall(r"\d+", p.split(os.sep)[-1 - up])] or [-1])
+
+
 def esc(s):
     return html.escape(str(s))
 
@@ -76,8 +81,8 @@ def _scan_skills(root):
 
 def skills():
     """(plugin_skills, local_skills) — plugin ones from the newest cache dir."""
-    caches = sorted(glob.glob(PLUGIN_GLOB))
-    plug = _scan_skills(os.path.join(caches[-1], "skills")) if caches else []
+    caches = glob.glob(PLUGIN_GLOB)
+    plug = _scan_skills(os.path.join(newest_cache(caches), "skills")) if caches else []
     return plug, _scan_skills(os.path.join(H, ".claude", "skills"))
 
 
@@ -87,11 +92,46 @@ def settings():
 
 
 def hooks_rows(cfg):
+    """(source, event, n) across settings.json + every enabled plugin's hooks/hooks.json."""
     rows = []
-    for event, groups in (cfg.get("hooks") or {}).items():
-        n = sum(len(g.get("hooks", [])) for g in groups)
-        rows.append((event, n))
-    return sorted(rows, key=lambda r: -r[1])
+    def add(src, hooks_cfg):
+        for event, groups in (hooks_cfg or {}).items():
+            n = sum(len(g.get("hooks", [])) for g in groups)
+            if n:
+                rows.append((src, event, n))
+    add("settings.json", cfg.get("hooks"))
+    cache = os.path.join(H, ".claude", "plugins", "cache")
+    for key, on in (cfg.get("enabledPlugins") or {}).items():
+        if not on:
+            continue
+        name, _, mkt = key.partition("@")
+        vers = glob.glob(os.path.join(cache, mkt, name, "*"))
+        if not vers:
+            continue
+        root = newest_cache(vers)
+        seen = set()
+        # form 1: hooks declared in plugin.json (inline dict, or string path to a json file)
+        try:
+            with open(os.path.join(root, ".claude-plugin", "plugin.json"), encoding="utf-8") as f:
+                hf = json.load(f).get("hooks")
+            if isinstance(hf, dict):
+                add(name, hf)
+            elif isinstance(hf, str):
+                fp = os.path.normpath(os.path.join(root, hf))
+                seen.add(fp)
+                with open(fp, encoding="utf-8") as f:
+                    add(name, json.load(f).get("hooks"))
+        except Exception:
+            pass
+        # form 2: auto-loaded hooks/hooks.json (skip if form 1 already pointed at it)
+        fp = os.path.normpath(os.path.join(root, "hooks", "hooks.json"))
+        if os.path.isfile(fp) and fp not in seen:
+            try:
+                with open(fp, encoding="utf-8") as f:
+                    add(name, json.load(f).get("hooks"))
+            except Exception:
+                pass
+    return sorted(rows, key=lambda r: (r[0] != "skillboard", r[0], -r[2]))
 
 
 def maintenance():
@@ -290,7 +330,7 @@ def main():
     now = time.strftime("%Y-%m-%d %H:%M")
 
     prev = safe(load_prev, {})
-    n_hooks = sum(n for _, n in hk)
+    n_hooks = sum(n for _, _, n in hk)
     safe(lambda: save_snapshot({"skills": len(sk), "hooks": n_hooks,
                                 "plugins": len(plugins), "mem": mem_total,
                                 "corpus": corpus, "ts": gen_epoch}), None)
@@ -326,7 +366,7 @@ def main():
 
     tiles = [
         ("Global skills", len(sk), "", "skills"),
-        ("Hooks installed", n_hooks, f"{len(hk)} events", "hooks"),
+        ("Hooks installed", n_hooks, f"{len({e for _, e, _ in hk})} events · {len({s for s, _, _ in hk})} sources", "hooks"),
         ("Plugins on", len(plugins), "", "plugins"),
         ("Memory files indexed", mem_total, f"index refreshed {int(idx_age/60)}m ago", "mem"),
     ]
@@ -390,8 +430,24 @@ def main():
 <li>Add alias: <span class="mono">alias skillboard='python3 ~/.claude/scripts/setup-dashboard.py --open'</span></li>
 </ol>
 <p class="note">Config file: <span class="mono">~/.claude/skillboard.json</span> — keys: dev_root (repo scan root), brain_dir (remember brain, "" to disable), corpus_trigger (SQLite plan threshold), repo (owner/skillboard for the copy-link cards).</p>"""
-    hooks_rows_html = "".join(f'<tr><td class="mono">{esc(e)}</td><td class="num">{n}</td></tr>'
-                              for e, n in hk)
+    hooks_rows_html = "".join(
+        f'<tr><td class="dim">{esc(s)}</td><td class="mono">{esc(e)}</td><td class="num">{n}</td></tr>'
+        for s, e, n in hk)
+    # Skills-tab install status: is the skillboard plugin actually wired up on this machine?
+    sb_enabled = bool((cfg.get("enabledPlugins") or {}).get("skillboard@skillboard"))
+    sb_caches = glob.glob(PLUGIN_GLOB)
+    sb_ver = os.path.basename(newest_cache(sb_caches)) if sb_caches else ""
+    sb_hooks = sum(n for s, _, n in hk if s == "skillboard")
+    if sb_enabled and sb_ver and plug_sk:
+        plug_status = (f'<div class="banner ok-b">&#10003; skillboard v{esc(sb_ver)} enabled — '
+                       f'{len(plug_sk)} skills in cache (register as <span class="mono">skillboard:&lt;name&gt;</span>), '
+                       f'{sb_hooks} hooks active. Restart Claude Code after install/update to apply.</div>')
+    else:
+        missing = ("not in enabledPlugins" if not sb_enabled else
+                   "no cache dir" if not sb_ver else "no skills in cache")
+        plug_status = (f'<div class="banner warn-b">&#9888; skillboard plugin not fully installed ({esc(missing)}) — '
+                       f'run <span class="mono">/plugin install skillboard@skillboard</span> then restart.</div>')
+
     brain_rows = "".join(f'<tr><td>{esc(k)}</td><td class="num">{v}</td></tr>' for k, v in br.items())
     plan_rows = "".join(
         f'<tr><td>{vslink(p, f)}</td><td class="dim">{plan_pill(s)}{esc(s)}</td></tr>'
@@ -501,7 +557,7 @@ input.filter:focus {{ outline:2px solid var(--blue); outline-offset:1px }}
 <h2>Hooks &amp; Plugins</h2>
 <div class="grid2"><div><table>{hooks_rows_html}</table></div>
 <div>{plugins_html}</div></div>
-<p class="note">Regenerates automatically each session start · manual: <span class="mono">dash</span></p>
+<p class="note">Regenerates automatically each session start · manual: <span class="mono">skillboard</span></p>
 </section>
 
 <section id="memory">
@@ -517,6 +573,7 @@ input.filter:focus {{ outline:2px solid var(--blue); outline-offset:1px }}
 </section>
 
 <section id="skills">
+{plug_status}
 <h2>Plugin skills ({len(plug_sk)})</h2>
 <div class="cards">{plug_cards}</div>
 <h2>Local skills ({len(loc_sk)})</h2>

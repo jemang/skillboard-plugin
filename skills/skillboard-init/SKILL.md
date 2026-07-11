@@ -35,8 +35,8 @@ The plugin owns the real scripts at `$ROOT/scripts/`. Stable local paths (used b
 ```python
 #!/usr/bin/env python3
 # SKILLBOARD-SHIM — real script lives in the skillboard plugin cache
-import glob, os, runpy, sys
-c = max(glob.glob(os.path.expanduser("~/.claude/plugins/cache/skillboard/skillboard/*/scripts/SCRIPTNAME")), key=os.path.getmtime)
+import glob, os, re, runpy, sys
+c = max(glob.glob(os.path.expanduser("~/.claude/plugins/cache/skillboard/skillboard/*/scripts/SCRIPTNAME")), key=lambda p: [int(x) for x in re.findall(r"\d+", p.split(os.sep)[-3])])
 sys.argv[0] = c; runpy.run_path(c, run_name="__main__")
 ```
 

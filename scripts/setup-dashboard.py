@@ -221,7 +221,8 @@ def plan_usage():
         if lim.get("percent") is None:
             continue
         label = {"session": "Session (5h)", "weekly_all": "Weekly · all models",
-                 "weekly_opus": "Weekly · Opus", "weekly_fable": "Weekly · Fable"}.get(
+                 "weekly_opus": "Weekly · Opus", "weekly_fable": "Weekly · Fable",
+                 "weekly_scoped": "Weekly · top models"}.get(
                     lim.get("kind"), lim.get("kind", "?"))
         reset = ""
         m = re.match(r"(\d+-\d+-\d+)T(\d+:\d+)", lim.get("resets_at") or "")
@@ -365,7 +366,7 @@ def main():
                   'maintenance done, no overdue items.</div>')
 
     tiles = [
-        ("Global skills", len(sk), "", "skills"),
+        ("Global skills", len(sk), f"{len(plug_sk)} plugin · {len(loc_sk)} local", "skills"),
         ("Hooks installed", n_hooks, f"{len({e for _, e, _ in hk})} events · {len({s for s, _, _ in hk})} sources", "hooks"),
         ("Plugins on", len(plugins), "", "plugins"),
         ("Memory files indexed", mem_total, f"index refreshed {int(idx_age/60)}m ago", "mem"),
@@ -436,9 +437,16 @@ def main():
 <li>Add alias: <span class="mono">alias skillboard='python3 ~/.claude/scripts/setup-dashboard.py --open'</span></li>
 </ol>
 <p class="note">Config file: <span class="mono">~/.claude/skillboard.json</span> — keys: dev_root (repo scan root), brain_dir (remember brain, "" to disable), corpus_trigger (SQLite plan threshold), repo (owner/skillboard for the copy-link cards).</p>"""
+    hk_groups = {}
+    for s, e, n in hk:
+        hk_groups.setdefault(s, []).append((e, n))
+    SB_TD = ' class="sb"'
     hooks_rows_html = "".join(
-        f'<tr><td class="dim">{esc(s)}</td><td class="mono">{esc(e)}</td><td class="num">{n}</td></tr>'
-        for s, e, n in hk)
+        f'<tr class="grp"><td colspan="2"{SB_TD if s == "skillboard" else ""}>{esc(s)}</td>'
+        f'<td class="num">{sum(n for _, n in evs)}</td></tr>'
+        + "".join(f'<tr class="sub"><td class="ind"></td><td class="mono dim">{esc(e)}</td>'
+                  f'<td class="num dim">{n}</td></tr>' for e, n in evs)
+        for s, evs in hk_groups.items())
     # Skills-tab warning only when the install is actually broken; healthy = per-card badges
     if sb_ok and plug_sk:
         plug_status = ""
@@ -452,7 +460,9 @@ def main():
     plan_rows = "".join(
         f'<tr><td>{vslink(p, f)}</td><td class="dim">{plan_pill(s)}{esc(s)}</td></tr>'
         for f, s, p in pl)
-    plugins_html = " ".join(f'<span class="chip">{esc(p)}</span>' for p in sorted(plugins))
+    plugins_html = " ".join(
+        f'<span class="chip sb">{esc(p)}</span>' if p == "skillboard" else f'<span class="chip">{esc(p)}</span>'
+        for p in sorted(plugins))
 
     page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -528,6 +538,13 @@ td.cell-bar {{ width:38% }}
 .status.warn {{ color:var(--warn); font-weight:600 }}
 .chip {{ display:inline-block; background:var(--s2); border:1px solid var(--line);
   border-radius:99px; padding:2px 10px; font-size:12px; margin:2px 2px }}
+.chips {{ margin-bottom:4px }}
+.half {{ max-width:560px }}
+tr.grp td {{ font-weight:650; border-top:2px solid var(--line); padding-top:8px }}
+tr.grp td.sb {{ color:var(--acc) }}
+tr.sub td {{ padding-top:3px; padding-bottom:3px; font-size:13px }}
+td.ind {{ width:16px }}
+.chip.sb {{ border-color:var(--acc); color:var(--acc) }}
 .note {{ color:var(--ink3); font-size:12px; margin-top:6px }}
 .grid2 {{ display:grid; grid-template-columns:1fr 1fr; gap:0 40px }}
 @media (max-width:720px) {{ .grid2 {{ grid-template-columns:1fr }} }}
@@ -554,9 +571,10 @@ input.filter:focus {{ outline:2px solid var(--blue); outline-offset:1px }}
 <section id="overview" class="on">
 <div class="tiles">{tiles_html}</div>
 {usage_html}
-<h2>Hooks &amp; Plugins</h2>
-<div class="grid2"><div><table>{hooks_rows_html}</table></div>
-<div>{plugins_html}</div></div>
+<h2>Plugins ({len(plugins)})</h2>
+<div class="chips">{plugins_html}</div>
+<h2>Hooks ({n_hooks})</h2>
+<table class="half">{hooks_rows_html}</table>
 <p class="note">Regenerates automatically each session start · manual: <span class="mono">skillboard</span></p>
 </section>
 

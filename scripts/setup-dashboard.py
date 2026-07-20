@@ -61,6 +61,38 @@ def mem_stats():
     return by, total, age
 
 
+def mem_list():
+    """Every indexed memory: (source, title, path) sorted by source then title."""
+    db = os.path.join(H, ".claude", "memory-index.db")
+    con = sqlite3.connect(db)
+    rows = con.execute("SELECT source, title, path FROM mem ORDER BY source, title").fetchall()
+    con.close()
+    return rows
+
+
+def mem_loc(source, path):
+    """Compact origin label so same-named files across projects stay distinct."""
+    if source == "auto-memory":
+        m = re.search(r"/projects/([^/]+)/memory/", path)
+        slug = m.group(1) if m else ""
+        return re.sub("^" + re.escape(DEV.replace(os.sep, "-")) + "-?", "", slug) or "global"
+    if source == "brain":
+        rel = os.path.relpath(os.path.dirname(path), BRAIN)
+        return "" if rel == "." else rel
+    if source == "repo":
+        return os.path.relpath(path, DEV)
+    return ""
+
+
+def mem_origin(source, path):
+    """Compact filter key: repo top-folder / brain / auto-memory project slug."""
+    if source == "brain":
+        return "brain"
+    if source == "repo":
+        return os.path.relpath(path, DEV).split(os.sep)[0]
+    return mem_loc(source, path) or "global"
+
+
 def _scan_skills(root):
     out = []
     if not os.path.isdir(root):
@@ -383,6 +415,20 @@ def main():
         f'<td class="pct dim">{100*n//max(1,mem_total)}%</td></tr>'
         for s, n in sorted(by.items(), key=lambda x: -x[1]))
 
+    ml = [(src, t, p, mem_origin(src, p)) for src, t, p in safe(mem_list, [])]
+    mem_by_origin = {}
+    for _, _, _, o in ml:
+        mem_by_origin[o] = mem_by_origin.get(o, 0) + 1
+    mem_rows = "".join(
+        f'<tr data-o="{esc(o)}"><td>{vslink(p, t)}</td>'
+        f'<td class="mono dim">{esc(src)}</td>'
+        f'<td class="dim">{esc(o)}</td></tr>'
+        for src, t, p, o in ml)
+    ordered = ["global"] + [o for o, _ in sorted(mem_by_origin.items(), key=lambda x: -x[1]) if o != "global"]
+    mem_opts = f'<option value="all">all ({len(ml)})</option>' + "".join(
+        f'<option value="{esc(o)}"{" selected" if o == "global" else ""}>{esc(o)} ({mem_by_origin[o]})</option>'
+        for o in ordered if o in mem_by_origin)
+
     trig_pct = 100 * corpus / TRIGGER
     maint = ("<span class='status ok'>&#10003; done recently</span>" if days_ago is not None and days_ago <= 7
              else "<span class='status warn'>&#9888; overdue — run /remember:process</span>")
@@ -551,10 +597,10 @@ td.ind {{ width:16px }}
 .grid2 {{ display:grid; grid-template-columns:1fr 1fr; gap:0 40px }}
 @media (max-width:720px) {{ .grid2 {{ grid-template-columns:1fr }} }}
 .wrap {{ overflow-x:auto }}
-input.filter {{ background:var(--s2); color:var(--ink); border:1px solid var(--line);
+input.filter, select.filter {{ background:var(--s2); color:var(--ink); border:1px solid var(--line);
   border-radius:6px; padding:6px 12px; font-size:13px; width:280px; max-width:100%;
   margin-bottom:10px }}
-input.filter:focus {{ outline:2px solid var(--blue); outline-offset:1px }}
+input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outline-offset:1px }}
 </style></head><body data-gen="{gen_epoch}">
 <header><h1>Skill<span style="color:var(--acc)">board</span></h1>
 <div><span class="gen" id="age">generated {now}</span>
@@ -591,6 +637,10 @@ input.filter:focus {{ outline:2px solid var(--blue); outline-offset:1px }}
 <tr><td class="dim" colspan="3">{esc(maint_sub)}</td></tr>{brain_rows}</table>
 <p class="note">Brain: /remember:process weekly → /remember:evolve</p>
 </div></div>
+<h2>Stored memories ({mem_total})</h2>
+<select id="memsel" class="filter" onchange="memflt()">{mem_opts}</select>
+<div class="wrap"><table id="memtab">{mem_rows}</table></div>
+<p class="note">Filter by origin. <span class="mono">auto-memory</span> is keyed by the working dir when written (<span class="mono">global</span> = ~/development); <span class="mono">repo</span> = handoff/.doc/gotchas; <span class="mono">brain</span> = remember plugin. Click a title to open in VS Code — delete it there to remove (index rebuilds next session). <span class="mono">MEMORY.md</span> is an index, not a memory — leave it.</p>
 </section>
 
 <section id="skills">
@@ -671,6 +721,9 @@ const o=b.textContent;b.textContent='copied!';setTimeout(()=>b.textContent=o,120
 function flt(inp,id){{const q=inp.value.toLowerCase();
 for(const tr of document.getElementById(id).rows)
 tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none'}}
+function memflt(){{const s=document.getElementById('memsel');if(!s)return;
+for(const tr of document.getElementById('memtab').rows)
+tr.style.display=(s.value==='all'||tr.dataset.o===s.value)?'':'none'}}
 document.querySelectorAll('nav a').forEach(a=>a.onclick=()=>{{
 document.querySelectorAll('nav a,section').forEach(x=>x.classList.remove('on'));
 a.classList.add('on');document.getElementById(a.dataset.tab).classList.add('on');
@@ -683,6 +736,7 @@ document.getElementById(h).classList.add('on')}}
 const ageH=(Date.now()/1000-+document.body.dataset.gen)/3600;
 if(ageH>24){{const e=document.getElementById('age');
 e.classList.add('stale');e.textContent+=` · STALE ${{ageH.toFixed(0)}}h — run: dash`}}
+memflt();
 </script></body></html>"""
     with open(OUT, "w", encoding="utf-8") as f:
         f.write(page)

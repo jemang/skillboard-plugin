@@ -22,7 +22,7 @@ One `.doc/` per active repo. If work spans multiple repos, each gets its own pla
 
 ## File format
 
-Name: `.doc/plan-<short-kebab-topic>.md` (stable name, update in place — no timestamps in filename).
+Name: `.doc/YYYY-MM-DD-NN-<short-kebab-topic>-<type>.md` — creation date + 2-digit per-day sequence (`NN` = that day's existing `.doc/YYYY-MM-DD-*` count +1) + kebab topic + trailing type `plan` (implementation plan) or `design` (design spec), e.g. `2026-07-21-01-super-admin-redesign-plan.md`. The trailing type distinguishes a plan from a design spec when all `.doc/*.md` are read on resume. Set date/`NN`/type **once at creation**; on resume keep updating that same file — don't spawn a new dated one.
 
 ```markdown
 # Plan: <title>
@@ -45,7 +45,7 @@ Name: `.doc/plan-<short-kebab-topic>.md` (stable name, update in place — no ti
 ## Keep it live
 
 - Tick checkboxes and update **Status** / **Current position** as steps complete — a stale plan misleads the next agent worse than no plan.
-- On resume: read existing `.doc/plan-*.md` FIRST before re-planning.
+- On resume: read existing `.doc/*.md` plans FIRST before re-planning.
 - Mark abandoned plans `Status: done` or delete them; don't leave zombies.
 - Plans reference files by path; don't paste diffs or file contents.
 

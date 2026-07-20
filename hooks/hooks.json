@@ -18,7 +18,7 @@
           },
           {
             "type": "command",
-            "command": "command -v codegraph >/dev/null 2>&1 || exit 0; ROOT=\"$(git rev-parse --show-toplevel 2>/dev/null)\" || exit 0; [ -z \"$ROOT\" ] && exit 0; M=\"\"; [ ! -d \"$ROOT/.codegraph\" ] && M=\"codegraph init -i\"; command -v code-review-graph >/dev/null 2>&1 && [ ! -d \"$ROOT/.code-review-graph\" ] && M=\"$M${M:+  and  }code-review-graph build\"; [ -n \"$M\" ] && echo \"CODE INDEX MISSING in $ROOT — offer the user (do not auto-run) to build it with: $M\"; exit 0",
+            "command": "command -v codegraph >/dev/null 2>&1 || exit 0; ROOT=\"$(git rev-parse --show-toplevel 2>/dev/null)\" || exit 0; [ -z \"$ROOT\" ] && exit 0; M=\"\"; [ ! -d \"$ROOT/.codegraph\" ] && M=\"codegraph init -i\"; command -v code-review-graph >/dev/null 2>&1 && [ ! -d \"$ROOT/.code-review-graph\" ] && M=\"$M${M:+  and  }code-review-graph build\"; [ -n \"$M\" ] && echo \"CODE INDEX MISSING in $ROOT — recommend to the user now (do not auto-run): build it with: $M\"; exit 0",
             "timeout": 10,
             "statusMessage": "Checking code indexes"
           },

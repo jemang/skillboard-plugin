@@ -1,6 +1,6 @@
 {
   "name": "skillboard",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "description": "Portable agent setup: continuity (handoff + persisting-plans), memory index + recall, self-learning skill factory, dev docs, lazy-code discipline, and the Skillboard dashboard. On Codex it ships skills + AGENTS.md instructions and runs the sync lifecycle hooks from hooks/hooks.json; the async memory-index/dashboard refresh is skipped on Codex (run `skillboard` manually).",
   "skills": "./skills/",
   "interface": {

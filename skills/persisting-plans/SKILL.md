@@ -11,7 +11,7 @@ Every plan lives on disk, not just in conversation. Context gets compacted, sess
 
 After forming or updating ANY plan (plan mode, written plan, agent-produced plan): write it to `.doc/` at the root of each active repo/app before starting execution.
 
-Note: plan-mode plans auto-save into `.doc/` via the `plansDirectory` setting — for those, don't duplicate the file; ADD the Status / Current position / Decisions fields below to the auto-saved file and keep them updated.
+Note: plan-mode plans auto-save into `.doc/` via the `plansDirectory` setting **with a harness-generated random slug** (e.g. `nifty-meerkat.md`) — you don't pick that name. **Step 1: rename it to the convention** — `mv .doc/<slug>.md .doc/YYYY-MM-DD-NN-<topic>-plan.md` (plan-mode plans are `type=plan`). Then don't duplicate — ADD the Status / Current position / Decisions fields below to the renamed file and keep them updated. Renaming is the ONLY way the convention reaches plan-mode files; skip it and they keep the random slug.
 
 ```bash
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"

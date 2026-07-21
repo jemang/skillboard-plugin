@@ -134,7 +134,7 @@ Report:
 ```
 ✓ Created skill: <topic>
   Sources scraped: <N>
-  Saved to: ~/.claude/skills/<topic>/SKILL.md
+  Saved to: <the chosen path — ~/.claude/skills/<topic>/SKILL.md or <repo>/.claude/skills/<topic>/SKILL.md>
   This skill will auto-trigger when working with <topic>.
 ```
 

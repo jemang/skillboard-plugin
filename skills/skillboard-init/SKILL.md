@@ -21,11 +21,12 @@ Required: `python3` (3.9+), `jq`. Optional (features degrade silently without th
 If missing, ask the user for values then write (defaults shown):
 
 ```json
-{ "dev_root": "~/development", "brain_dir": "~/remember", "corpus_trigger": 50, "repo": "" }
+{ "dev_root": "~/development", "brain_dir": "~/remember", "codex_dir": "~/.codex", "corpus_trigger": 50, "repo": "" }
 ```
 
 - `dev_root`: where their repos live (continuity + plan scanning).
 - `brain_dir`: remember-plugin brain path, `""` if they don't use it.
+- `codex_dir`: Codex CLI home (its native memories get indexed too), `""` if no Codex.
 - `repo`: `owner/repo` GitHub path (e.g. `jemang/skillboard-plugin`) — powers dashboard copy-link cards; `""` disables the links.
 
 ### 3. Script shims at `~/.claude/scripts/`
@@ -56,7 +57,18 @@ After edits: `jq -e . ~/.claude/settings.json` must parse.
 
 Show the Recommended list with install commands (same list as the dashboard Setup tab): superpowers, caveman, remember, token-optimizer, security-guidance, context7, frontend-design + CLI tools rtk/codegraph. Let the user pick.
 
-### 7. First run + finish
+### 7. Codex bootstrap (optional)
+
+Register the plugin on Codex CLI too, if present. Fail-open: no Codex → report `skipped: Codex not installed`, continue.
+
+1. Detect the binary: `command -v codex`, else `/Applications/ChatGPT.app/Contents/Resources/codex` (macOS ChatGPT app). Call it `$CODEX`.
+2. `"$CODEX" plugin list` → `skillboard@skillboard` already `installed, enabled` at the current version → report `already configured`, done.
+3. Else (ask first): `"$CODEX" plugin marketplace add "$ROOT" --json` (if the marketplace is missing) → `"$CODEX" plugin add skillboard@skillboard --json`.
+4. Verify: `"$CODEX" doctor` → 0 fail (ignore network/reachability warns); optionally a bounded `"$CODEX" exec "Reply only: OK"`.
+
+Notes: Codex reads the same `hooks/hooks.json` (sync hooks run; the async memory-index/dashboard hook is skipped — run the `skillboard` alias manually on Codex). Reinstalling via `plugin add` is also the fix whenever hooks change and Codex distrusts them (`authPolicy: ON_INSTALL` re-pins the hashes).
+
+### 8. First run + finish
 
 ```bash
 python3 ~/.claude/scripts/memory-index.py        # builds ~/.claude/memory-index.db

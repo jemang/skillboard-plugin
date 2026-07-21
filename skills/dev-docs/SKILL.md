@@ -1,6 +1,6 @@
 ---
 name: dev-docs
-description: Use when the user wants to create or refresh a repo's standard living docs in one pass — "/dev-docs", "update dev docs", "generate default docs", "refresh project docs", "bring docs up to date", after a schema/architecture/stack change, or when starting docs for a new repo. Regenerates database-design.md, architecture.md, the project-conventions skill, and checks README/.env.example. NOT for narrative onboarding documents (that is handover-docs) and NOT for session summaries (that is handoff).
+description: Use when the user wants to create or refresh a repo's standard living docs in one pass — "/dev-docs", "update dev docs", "generate default docs", "refresh project docs", "bring docs up to date", after a schema/architecture/stack change, or when starting docs for a new repo. Regenerates database-design.md, architecture.md, the project-conventions skill, and checks README/.env.example. NOT for narrative onboarding documents (that is the handover-docs skill, if installed) and NOT for session summaries (that is handoff).
 ---
 
 # Dev Docs — the default doc set, one command

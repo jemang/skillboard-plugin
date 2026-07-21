@@ -1,6 +1,6 @@
 # Skillboard
 
-Portable Claude Code setup — skills, hooks, memory index, and the Skillboard dashboard — packaged as one plugin. Built for continuity across sessions/compaction and for weak-model reliability (collision-free skill descriptions, structural hooks instead of prose rules).
+Portable agent setup — skills, hooks, memory index, and the Skillboard dashboard — packaged as one plugin for **Claude Code and Codex CLI** (one repo, both harnesses). Built for continuity across sessions/compaction and for weak-model reliability (collision-free skill descriptions, structural hooks instead of prose rules).
 
 ## What's inside
 
@@ -11,12 +11,15 @@ Portable Claude Code setup — skills, hooks, memory index, and the Skillboard d
 | `skills/memory-recall` | indexed lookup of past decisions/gotchas across all memory homes |
 | `skills/self-learning` | research a technology → generate a new skill (w/ ecosystem check) |
 | `skills/decision-routes` | evidence-graded options + one recommendation |
+| `skills/lazy-code` | the laziest solution that works — YAGNI ladder, debt markers, one runnable check |
 | `skills/dev-docs` | regenerate a repo's living docs in one pass |
-| `skills/skillboard-init` | **START HERE** — idempotent machine bootstrap |
+| `skills/database-design-doc` | database-design.md with Mermaid ER diagrams (Laravel/Rails, degrades elsewhere) |
+| `skills/skillboard-init` | **START HERE** — idempotent machine bootstrap (incl. optional Codex registration) |
 | `hooks/hooks.json` | continuity pointers at session start, plan preservation around compaction, weekly memory-maintenance nag, memory-index + dashboard auto-refresh, optional rtk/code-review-graph integration (silent when tools absent) |
 | `scripts/memory-index.py` | disposable FTS5 index over memory files (files stay the only truth) |
 | `scripts/setup-dashboard.py` | the Skillboard dashboard → `~/.claude/skillboard.html` |
-| `templates/CLAUDE-sections.md` | standard CLAUDE.md sections (Memory Routing, Surgical Changes, …) |
+| `templates/CLAUDE-sections.md` | standard CLAUDE.md sections (Memory Routing + naming conventions, Surgical Changes, …) |
+| `AGENTS.md` + `.codex-plugin/` | Codex CLI target: instructions + manual skill index + plugin manifest |
 
 ## Install (new machine)
 
@@ -39,6 +42,10 @@ alias skillboard='python3 ~/.claude/scripts/setup-dashboard.py --open'
 (`~/.claude/scripts/*.py` are 2-line shims installed by init; the real scripts live in the plugin cache and update with the plugin.)
 
 Full component reference + recommended companion plugins with live install-status: open the dashboard → **Setup** tab.
+
+### Codex CLI
+
+`/skillboard-init` step 7 registers the plugin on Codex automatically when the binary is present (`codex plugin marketplace add` + `plugin add`). Codex runs the same sync hooks from `hooks/hooks.json`; the async memory-index/dashboard refresh isn't supported there — run the `skillboard` alias manually. After changing any hook, reinstall on Codex (`codex plugin add skillboard@skillboard --json`) so it re-trusts the hook hashes.
 
 ## Design rules (do not break)
 

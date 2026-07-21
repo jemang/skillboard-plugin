@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: Use when the current SESSION's work must be packaged so a fresh agent can resume it cold — user says "handoff", "write a handoff", "summarize this session for a fresh agent", "I'm running out of context", "context is getting full", "prep this for another session", "pass this to a new agent", or a long session is winding down and continuity matters. NOT for documenting the codebase itself for new team members — that is handover-docs. Saves/updates handoff.md at the project root.
+description: Use when the current SESSION's work must be packaged so a fresh agent can resume it cold — user says "handoff", "write a handoff", "summarize this session for a fresh agent", "I'm running out of context", "context is getting full", "prep this for another session", "pass this to a new agent", or a long session is winding down and continuity matters. NOT for documenting the codebase itself for new team members — that is the handover-docs skill (if installed). Saves/updates handoff.md at the project root.
 ---
 
 # Handoff
@@ -49,7 +49,7 @@ The handoff's job is the connective tissue that *isn't* written down anywhere el
 
 ## Redact sensitive information
 
-Before writing, scan what you're about to include and redact secrets and PII — API keys, tokens, passwords, connection strings with credentials, private keys, `.env` values, personal emails/phone numbers, customer data. Replace with a placeholder that preserves meaning without the secret, e.g. `DATABASE_URL=postgres://user:[REDACTED]@host/db` or `API key: [REDACTED — see 1Password / project secrets]`. The next agent needs to know a credential exists and where it lives, not its value. A handoff file sits in a world-readable temp dir, so treat it as if it could leak.
+Before writing, scan what you're about to include and redact secrets and PII — API keys, tokens, passwords, connection strings with credentials, private keys, `.env` values, personal emails/phone numbers, customer data. Replace with a placeholder that preserves meaning without the secret, e.g. `DATABASE_URL=postgres://user:[REDACTED]@host/db` or `API key: [REDACTED — see 1Password / project secrets]`. The next agent needs to know a credential exists and where it lives, not its value. A handoff file lives at the repo root where it can be committed or shared, so treat it as if it could leak.
 
 ## Tailoring to the next focus (arguments)
 
@@ -109,7 +109,7 @@ This is what turns a summary into an actionable handoff. Look at what the next s
 - A bug to chase → `superpowers:systematic-debugging`
 - New feature/behavior work → `superpowers:brainstorming` then `superpowers:test-driven-development`
 - Finishing/merging a branch → `superpowers:finishing-a-development-branch`
-- Understanding an unfamiliar area of the code → `feature-explainer`
+- Understanding an unfamiliar area of the code → `feature-explainer` (if available)
 - About to claim done → `superpowers:verification-before-completion`
 - A plan exists or will be made → `persisting-plans` (keep `.doc/` plan files current alongside this handoff)
 

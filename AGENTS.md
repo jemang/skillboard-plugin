@@ -28,3 +28,5 @@ Portable agent setup. On Codex this ships **skills + these instructions**, and C
 **New plan-doc filenames** (any doc written into `.doc/`): `YYYY-MM-DD-NN-<topic>-<type>.md` — date + 2-digit per-day sequence + kebab topic + trailing type `plan` (implementation) or `design` (spec), e.g. `2026-07-21-01-user-dashboard-redesign-plan.md`. New docs only. Plan-mode auto-saves land with a random slug — rename them to this convention (`type=plan`) as the first step.
 
 **Continuity.** On resume, read the repo's `.doc/*.md` plans + `handoff.md` first. Keep their Status/Current-position current as work proceeds.
+
+**Tool names.** Skill bodies name Claude-side tools (WebSearch, context7, codegraph MCP, browser tools) — on Codex substitute the native equivalents; the skill's method is what matters, not the tool name.

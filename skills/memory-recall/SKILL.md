@@ -1,11 +1,11 @@
 ---
 name: memory-recall
-description: "Look up a PAST fact — decision, preference, gotcha, project note — when you don't know which memory file holds it and MEMORY.md / the current repo's continuity files don't show it. Runs one indexed search across ALL memory homes at once (auto-memory, remember brain, repo project-conventions gotchas, handoff.md, .doc plans), then reads the winning file. Trigger on: 'what did we decide about X', 'what was that fix for X', 'did I have a note on X', or any moment you are about to grep/re-derive a fact that was probably saved before. NOT for saving/capturing memories — use Memory Routing (CLAUDE.md) or 'remember this:'. NOT for searching code — use codegraph/grep."
+description: "Look up a PAST fact — decision, preference, gotcha, project note — when you don't know which memory file holds it and MEMORY.md / the current repo's continuity files don't show it. Runs one indexed search across ALL memory homes at once (auto-memory, remember brain, Codex-native memories, repo project-conventions gotchas, handoff.md, .doc plans), then reads the winning file. Trigger on: 'what did we decide about X', 'what was that fix for X', 'did I have a note on X', or any moment you are about to grep/re-derive a fact that was probably saved before. NOT for saving/capturing memories — use Memory Routing (CLAUDE.md) or 'remember this:'. NOT for searching code — use codegraph/grep."
 ---
 
 # Memory Recall
 
-One indexed lookup instead of grepping four memory homes. The answer ALWAYS comes from the file — the index only finds it.
+One indexed lookup instead of grepping five memory homes. The answer ALWAYS comes from the file — the index only finds it.
 
 ## Procedure (2 tool calls typical)
 
@@ -17,7 +17,7 @@ python3 ~/.claude/scripts/memory-index.py --search "windows ssh teleport" -n 5
 
 Output: `path | source | title` per line, best match first.
 
-2. Read the best-matching file (pick by title + source; `brain` = personal/projects, `auto-memory` = Claude preferences/feedback, `repo` = that repo's gotchas/plans/handoffs). Answer from the file content, cite the path.
+2. Read the best-matching file (pick by title + source; `brain` = personal/projects, `auto-memory` = Claude preferences/feedback, `codex` = Codex-native memories/session summaries, `repo` = that repo's gotchas/plans/handoffs). Answer from the file content, cite the path.
 
 ## If no match
 

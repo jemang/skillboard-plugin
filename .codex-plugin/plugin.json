@@ -1,0 +1,25 @@
+{
+  "name": "skillboard",
+  "version": "0.9.7",
+  "description": "Portable agent setup: continuity (handoff + persisting-plans), memory index + recall, self-learning skill factory, dev docs, lazy-code discipline, and the Skillboard dashboard. On Codex it ships skills + AGENTS.md instructions and runs the sync lifecycle hooks from hooks/hooks.json; the async memory-index/dashboard refresh is skipped on Codex (run `skillboard` manually).",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Skillboard",
+    "shortDescription": "Portable agent setup: continuity, memory, and discipline skills.",
+    "longDescription": "Jemang's portable agent setup as a Codex plugin: continuity skills (handoff, persisting-plans), memory recall, a self-learning skill factory, dev-docs, and the lazy-code ladder. Instructions load from AGENTS.md; skills route manually via the AGENTS.md index. Codex runs the sync SessionStart/tool hooks from hooks/hooks.json; the async memory-index + dashboard refresh is not yet supported on Codex, so run the `skillboard` command manually to refresh it.",
+    "developerName": "Jemang",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Instructions",
+      "Continuity + plan persistence",
+      "Memory recall",
+      "Lazy-code discipline"
+    ],
+    "defaultPrompt": [
+      "Save the current plan to .doc following the skillboard naming convention.",
+      "What did we decide about this before? Check memory.",
+      "Use the lazy-code ladder: find the simplest solution that works."
+    ],
+    "brandColor": "#eb6834"
+  }
+}

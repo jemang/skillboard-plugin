@@ -25,6 +25,7 @@ def _cfg():
 CFG = _cfg()
 DEV = os.path.expanduser(CFG.get("dev_root") or "~/development")
 BRAIN = os.path.expanduser(CFG.get("brain_dir") or "~/remember")
+CODEX = os.path.expanduser(CFG.get("codex_dir") or "~/.codex")
 PRUNE = {".git", "node_modules", "vendor", ".venv", "venv", "storage",
          "dist", "build", ".next", "__pycache__", ".codegraph", ".code-review-graph"}
 MAX_BYTES = 256 * 1024  # skip pathological files; memory files are tiny
@@ -34,6 +35,11 @@ def sources():
     """Yield (path, source_tag). Only known memory homes — never code."""
     for p in glob.glob(os.path.join(HOME, ".claude/projects/*/memory/*.md")):
         yield p, "auto-memory"
+    # Codex CLI's native memory home (harness-agnostic setup, indexed alongside Claude's)
+    for p in glob.glob(os.path.join(CODEX, "memories", "*.md")):
+        yield p, "codex"
+    for p in glob.glob(os.path.join(CODEX, "memories", "rollout_summaries", "*.md")):
+        yield p, "codex"
     for root, dirs, files in os.walk(BRAIN):
         dirs[:] = [d for d in dirs if d not in PRUNE and not d.startswith(".")]
         for f in files:

@@ -85,9 +85,11 @@ def mem_loc(source, path):
 
 
 def mem_origin(source, path):
-    """Compact filter key: repo top-folder / brain / auto-memory project slug."""
+    """Compact filter key: repo top-folder / brain / codex / auto-memory project slug."""
     if source == "brain":
         return "brain"
+    if source == "codex":
+        return "codex"
     if source == "repo":
         return os.path.relpath(path, DEV).split(os.sep)[0]
     return mem_loc(source, path) or "global"

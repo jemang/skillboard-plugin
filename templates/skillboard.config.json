@@ -1,1 +1,1 @@
-{ "dev_root": "~/development", "brain_dir": "~/remember", "corpus_trigger": 50, "repo": "" }
+{ "dev_root": "~/development", "brain_dir": "~/remember", "codex_dir": "~/.codex", "corpus_trigger": 50, "repo": "" }

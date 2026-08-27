@@ -335,4 +335,3 @@ Before declaring done, verify:
 - [ ] The Overview and Summary are specific to this schema, not boilerplate.
 - [ ] If a prior doc existed, its `## Manual Notes` survived.
 - [ ] The file was written to the chosen app's root, not the working directory.
-```

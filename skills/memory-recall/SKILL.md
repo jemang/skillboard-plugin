@@ -27,5 +27,5 @@ Output: `path | source | title` per line, best match first.
 ## Rules
 
 - Index is disposable and auto-refreshed by a SessionStart hook. If results look stale (file just written this session), refresh first: `python3 ~/.claude/scripts/memory-index.py --quiet`.
-- Never write to the DB or treat it as storage — files are the only source of truth (see `~/development/.doc/plan-sqlite-memory-index.md`).
+- Never write to the DB or treat it as storage — files are the only source of truth (skillboard design rule).
 - If the DB is missing, the script says so — run it once without flags to rebuild, then retry.

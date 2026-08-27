@@ -10,12 +10,13 @@ Portable agent setup — skills, hooks, memory index, and the Skillboard dashboa
 | `skills/persisting-plans` | plans always saved to the repo's `.doc/` |
 | `skills/memory-recall` | indexed lookup of past decisions/gotchas across all memory homes |
 | `skills/self-learning` | research a technology → generate a new skill (w/ ecosystem check) |
+| `skills/skill-evolve` | periodic skill audit: small-model research agents (trends, trending skills, version verify, habit mining) → verified verdicts: refresh, absorb, or flag |
 | `skills/decision-routes` | evidence-graded options + one recommendation |
 | `skills/lazy-code` | the laziest solution that works — YAGNI ladder, debt markers, one runnable check |
 | `skills/dev-docs` | regenerate a repo's living docs in one pass |
 | `skills/database-design-doc` | database-design.md with Mermaid ER diagrams (Laravel/Rails, degrades elsewhere) |
 | `skills/skillboard-init` | **START HERE** — idempotent machine bootstrap (incl. optional Codex registration) |
-| `hooks/hooks.json` | continuity pointers at session start, plan preservation around compaction, weekly memory-maintenance nag, memory-index + dashboard auto-refresh, optional rtk/code-review-graph integration (silent when tools absent) |
+| `hooks/hooks.json` | continuity pointers at session start, plan preservation around compaction, weekly memory-maintenance nag, stale-skill freshness nag, memory-index + dashboard auto-refresh, optional rtk/code-review-graph integration (silent when tools absent) |
 | `scripts/memory-index.py` | disposable FTS5 index over memory files (files stay the only truth) |
 | `scripts/setup-dashboard.py` | the Skillboard dashboard → `~/.claude/skillboard.html` |
 | `templates/CLAUDE-sections.md` | standard CLAUDE.md sections (Memory Routing + naming conventions, Surgical Changes, …) |

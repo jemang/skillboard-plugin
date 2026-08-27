@@ -1,6 +1,6 @@
 ---
 name: self-learning
-description: "Autonomous skill generator that learns new technologies from the web. Use when users want to learn about a new library/framework/tool, need to create a skill for an unfamiliar technology, want to research and document a technology's usage patterns, or invoke with `/learn <topic>`. This skill uses web search and browser tools to discover, extract, and synthesize documentation into a reusable skill. NOT for auditing or refreshing the EXISTING skill set against trends/staleness — that is skill-evolve."
+description: "Autonomous skill generator that learns new technologies from the web. Use when users want to learn about a new library/framework/tool, need to create a skill for an unfamiliar technology, want to research and document a technology's usage patterns, or invoke with `/learn <topic>`. NOT for auditing or refreshing the EXISTING skill set against trends/staleness — that is skill-evolve."
 ---
 
 # Self-Learning Skill Generator
@@ -13,6 +13,8 @@ Autonomously research and learn new technologies from the web, then generate a r
 /learn <topic>
 ```
 
+### 1. Parse the topic
+
 If `<topic>` is missing, show usage. If topic is ambiguous, ask to clarify:
 
 - "react" → "React for web, React Native, or a specific library like react-query?"
@@ -21,7 +23,7 @@ If `<topic>` is missing, show usage. If topic is ambiguous, ask to clarify:
 
 Normalize to **kebab-case** for filenames.
 
-### 1.5 Ecosystem Check (before building)
+### 2. Ecosystem Check (before building)
 
 Before researching from scratch, check whether a reputable skill already exists:
 
@@ -29,9 +31,9 @@ Before researching from scratch, check whether a reputable skill already exists:
 npx -y skills find <topic>        # searches skills.sh ecosystem
 ```
 
-If a match exists from a reputable source (1K+ installs, known org like vercel-labs/anthropics), offer it to the user instead of building: show name, install count, and `npx skills add <owner/repo> --skill <name>`. If they accept, still run the step-5 collision check on the installed skill's description. If no reputable match (or `npx` unavailable/offline), continue to step 2.
+If a match exists from a reputable source (1K+ installs, known org like vercel-labs/anthropics), offer it to the user instead of building: show name, install count, and `npx skills add <owner/repo> --skill <name>`. If they accept, still run the step-6 collision check on the installed skill's description. If no reputable match (or `npx` unavailable/offline), continue to step 3.
 
-### 2. Discover Sources (Web Search)
+### 3. Discover Sources (Web Search)
 
 Use web search tool to find authoritative documentation:
 
@@ -52,7 +54,7 @@ If no credible sources found, ask user to provide a URL.
 
 ---
 
-### 3. Extract Content (URL Reading)
+### 4. Extract Content (URL Reading)
 
 For each selected URL, read the content:
 
@@ -82,7 +84,7 @@ Record scrape timestamp for each source (use current date: YYYY-MM-DD format).
 
 ---
 
-### 4. Generate Skill
+### 5. Generate Skill
 
 Skills are modular, self-contained packages. Every skill consists of a required `SKILL.md` file and optional bundled resources:
 
@@ -106,7 +108,7 @@ skill-name/
     - **Format:** Ensure valid YAML frontmatter and proper file structure.
     - **Freshness stamp (required):** the skill body's opening states `Researched YYYY-MM-DD` plus the exact versions verified (e.g. `langgraph 1.2.6`), and the description names the covered major lines (e.g. "Covers langgraph 1.x"). The skillboard dashboard reads this date to flag stale skills — a tech skill without a stamp can't be audited.
 
-### 5. Save the Skill
+### 6. Save the Skill
 
 Two locations:
 
@@ -129,7 +131,7 @@ Create directory if it doesn't exist, warn user before overwriting existing skil
 
 ---
 
-### 6. Confirm to User
+### 7. Confirm to User
 
 Report:
 ```

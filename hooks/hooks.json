@@ -6,13 +6,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v code-review-graph >/dev/null 2>&1 && code-review-graph status; exit 0",
+            "command": "command -v code-review-graph >/dev/null 2>&1 && code-review-graph status 2>/dev/null | grep -E '^(Nodes|Files|Last updated):' | tr '\\n' ' '; exit 0",
             "timeout": 5,
             "statusMessage": "Code-review-graph status"
           },
           {
             "type": "command",
-            "command": "ROOT=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"; FILES=$(ls \"$ROOT\"/.doc/*.md \"$ROOT/handoff.md\" 2>/dev/null); if [ -n \"$FILES\" ]; then echo \"CONTINUITY FILES — read these before planning or resuming work, and keep their status updated:\"; echo \"$FILES\"; fi",
+            "command": "ROOT=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"; N=$(ls \"$ROOT\"/.doc/*.md 2>/dev/null | wc -l | tr -d ' '); FILES=$(ls -t \"$ROOT\"/.doc/*.md 2>/dev/null | head -5; ls \"$ROOT/handoff.md\" 2>/dev/null); if [ -n \"$FILES\" ]; then echo \"CONTINUITY FILES — read these before planning or resuming work, and keep their status updated:\"; echo \"$FILES\"; [ \"$N\" -gt 5 ] && echo \"(newest 5 of $N .doc files; ls $ROOT/.doc for the rest)\"; fi; exit 0",
             "timeout": 10,
             "statusMessage": "Checking for plan/handoff files"
           },
@@ -63,7 +63,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "ROOT=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"; FILES=$(ls \"$ROOT\"/.doc/*.md \"$ROOT/handoff.md\" 2>/dev/null); if [ -n \"$FILES\" ]; then echo \"CONTEXT WAS COMPACTED. Before anything else: re-read these files and update their Status/Current-position to match reality:\"; echo \"$FILES\"; fi",
+            "command": "ROOT=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"; FILES=$(ls -t \"$ROOT\"/.doc/*.md 2>/dev/null | head -5; ls \"$ROOT/handoff.md\" 2>/dev/null); if [ -n \"$FILES\" ]; then echo \"CONTEXT WAS COMPACTED. Before anything else: re-read these files and update their Status/Current-position to match reality:\"; echo \"$FILES\"; fi; exit 0",
             "timeout": 10,
             "statusMessage": "Pointing at plan/handoff files after compaction"
           }
@@ -76,22 +76,27 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v code-review-graph >/dev/null 2>&1 && code-review-graph detect-changes --brief; exit 0",
-            "timeout": 10,
-            "statusMessage": "Change detection"
-          },
-          {
-            "type": "command",
             "command": "command -v rtk >/dev/null 2>&1 && rtk hook claude; exit 0",
             "timeout": 10,
             "statusMessage": "RTK rewrite"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/enforce-doc-naming.sh\"",
+            "timeout": 10,
+            "statusMessage": "Checking .doc/ naming convention"
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write|Bash",
+        "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",

@@ -16,7 +16,8 @@ Portable agent setup — skills, hooks, memory index, and the Skillboard dashboa
 | `skills/dev-docs` | regenerate a repo's living docs in one pass |
 | `skills/database-design-doc` | database-design.md with Mermaid ER diagrams (Laravel/Rails, degrades elsewhere) |
 | `skills/skillboard-init` | **START HERE** — idempotent machine bootstrap (incl. optional Codex registration) |
-| `hooks/hooks.json` | continuity pointers at session start, plan preservation around compaction, weekly memory-maintenance nag, stale-skill freshness nag, memory-index + dashboard auto-refresh, optional rtk/code-review-graph integration (silent when tools absent) |
+| `hooks/hooks.json` | continuity pointers at session start, plan preservation around compaction, weekly memory-maintenance nag, stale-skill freshness nag, `.doc/` naming guard on Write, memory-index + dashboard auto-refresh, optional rtk/code-review-graph integration (silent when tools absent) |
+| `hooks/enforce-doc-naming.sh` | blocks a `.doc/*.md` write whose name breaks `YYYY-MM-DD-NN-topic-(plan\|design).md`, telling the agent the right name (catches plan-mode's random slug before it lands) |
 | `scripts/memory-index.py` | disposable FTS5 index over memory files (files stay the only truth) |
 | `scripts/setup-dashboard.py` | the Skillboard dashboard → `~/.claude/skillboard.html` |
 | `templates/CLAUDE-sections.md` | standard CLAUDE.md sections (Memory Routing + naming conventions, Surgical Changes, …) |

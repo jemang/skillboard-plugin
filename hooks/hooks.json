@@ -36,10 +36,10 @@
           },
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/memory-index.py\" --quiet; python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/setup-dashboard.py\" >/dev/null 2>&1",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/memory-index.py\" --quiet >/dev/null 2>&1",
             "timeout": 45,
             "async": true,
-            "statusMessage": "Refreshing memory index + Skillboard"
+            "statusMessage": "Refreshing memory index"
           }
         ]
       }

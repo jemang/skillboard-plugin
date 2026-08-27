@@ -670,7 +670,7 @@ def main():
         ("memory-recall skill", "answers 'what did we decide about X' in 2 tool calls", "skillboard:memory-recall"),
         ("Continuity hooks", "session start points agent at .doc plans + handoff.md; compact hooks preserve + restore plan state", "hooks/hooks.json"),
         ("Weekly maintenance reminder", "nags when /remember:process is >7 days old", "SessionStart hook, silent when fresh"),
-        ("Skillboard dashboard", "this page — regenerated every session start", "scripts/setup-dashboard.py → ~/.claude/skillboard.html"),
+        ("Skillboard dashboard", f"this page — built on demand via {DASH_COMMAND}", "scripts/setup-dashboard.py → ~/.claude/skillboard.html"),
         ("Plan usage panel", "live plan limits from the /usage source", "Overview tab; needs Keychain token, fail-open"),
         ("skillboard-init", "idempotent machine bootstrap: deps, config, shims, settings, CLAUDE.md sections", "/skillboard-init"),
     ]
@@ -913,7 +913,7 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 <h2>Hooks ({n_hooks})</h2>
 <details class="fold"><summary>Per-plugin breakdown — skillboard runs {n_hooks_sb} of {n_hooks}</summary>
 <table class="half">{hooks_rows_html}</table></details>
-<p class="note">Regenerates automatically each session start · manual: <span class="mono">{DASH_COMMAND}</span></p>
+<p class="note">Built on demand — run <span class="mono">{DASH_COMMAND}</span> to refresh this page. Session start refreshes only the memory index.</p>
 </section>
 
 <section id="memory">
@@ -948,7 +948,6 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 <h2>Every session start — automatic, no commands</h2>
 <table>
 <tr><td class="mono">~/.claude/memory-index.db</td><td class="dim">memory index refreshed from all homes (files stay the only truth — index is disposable)</td></tr>
-<tr><td class="mono">~/.claude/skillboard.html</td><td class="dim">this dashboard, regenerated with fresh data + delta arrows vs last snapshot</td></tr>
 <tr><td>Continuity pointer</td><td class="dim">if the repo has <span class="mono">.doc/</span> plans or <span class="mono">handoff.md</span>, the agent is told to read them before working</td></tr>
 <tr><td>Maintenance nag</td><td class="dim">reminder to run <span class="mono">/remember:process</span> when last run &gt;7 days ago — silent otherwise</td></tr>
 <tr><td>Code-index offer</td><td class="dim">offers <span class="mono">codegraph init</span> in repos missing an index (only if codegraph installed)</td></tr>
@@ -958,7 +957,7 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 
 <h2>Hook map — {n_hooks_sb} hooks, what fires when</h2>
 <table class="half">
-<tr><td class="mono">SessionStart</td><td class="dim">the 6 items above</td></tr>
+<tr><td class="mono">SessionStart</td><td class="dim">the 5 items above. This dashboard is NOT among them — it is built only when you run <span class="mono">{DASH_COMMAND}</span>, so no session pays for a page it may never open</td></tr>
 <tr><td class="mono">PreCompact / PostCompact</td><td class="dim">save plan-state pointers before context compaction, restore them after</td></tr>
 <tr><td class="mono">PreToolUse (Bash)</td><td class="dim">rtk token-saving rewrite (guarded)</td></tr>
 <tr><td class="mono">PreToolUse (Write)</td><td class="dim">blocks a <span class="mono">.doc/</span> filename that breaks the <span class="mono">YYYY-MM-DD-NN-topic-(plan|design)</span> convention, naming the right one</td></tr>

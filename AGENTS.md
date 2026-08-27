@@ -1,6 +1,6 @@
 # Skillboard (Codex)
 
-Portable agent setup. On Codex this ships **skills + these instructions**, and Codex runs the sync SessionStart/tool hooks from `hooks/hooks.json`. The one async hook (memory-index + dashboard refresh) isn't supported on Codex and is skipped — run the `skillboard` command manually to refresh the index/dashboard. Codex has no skill auto-routing, so use the index below to pick a skill by hand.
+Portable agent setup. On Codex this ships **skills + these instructions**, and Codex runs the sync SessionStart/tool hooks from `hooks/hooks.json`. The one async hook (memory-index refresh) isn't supported on Codex and is skipped — run `python3 ~/.claude/scripts/memory-index.py` manually there to keep recall current. The dashboard is on-demand everywhere (`skillboard`), never on a hook. Codex has no skill auto-routing, so use the index below to pick a skill by hand.
 
 ## Skill index — read the skill's `SKILL.md` when its trigger fits
 

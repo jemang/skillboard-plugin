@@ -74,7 +74,7 @@ Register the plugin on Codex CLI too, if present. Fail-open: no Codex → report
 3. Else (ask first): `"$CODEX" plugin marketplace add "$ROOT" --json` (if the marketplace is missing) → `"$CODEX" plugin add skillboard@skillboard --json`.
 4. Verify: `"$CODEX" doctor` → 0 fail (ignore network/reachability warns); optionally a bounded `"$CODEX" exec "Reply only: OK"`.
 
-Notes: Codex reads the same `hooks/hooks.json` (sync hooks run; the async memory-index/dashboard hook is skipped — run the `skillboard` alias manually on Codex). Reinstalling via `plugin add` is also the fix whenever hooks change and Codex distrusts them (`authPolicy: ON_INSTALL` re-pins the hashes). Codex ≥0.148 may support async hooks (unverified as of 2026-08-27; local was 0.144.2) — after a Codex upgrade, re-test whether the async hook runs; ≥0.149 retires the `untrusted` approval policy.
+Notes: Codex reads the same `hooks/hooks.json` (sync hooks run; the async memory-index hook is skipped — run `python3 ~/.claude/scripts/memory-index.py` manually on Codex to refresh recall). The dashboard is on-demand on both harnesses (`skillboard`), so nothing about it differs on Codex. Reinstalling via `plugin add` is also the fix whenever hooks change and Codex distrusts them (`authPolicy: ON_INSTALL` re-pins the hashes). Codex ≥0.148 may support async hooks (unverified as of 2026-08-27; local was 0.144.2) — after a Codex upgrade, re-test whether the async hook runs; ≥0.149 retires the `untrusted` approval policy.
 
 ### 8. First run + finish
 

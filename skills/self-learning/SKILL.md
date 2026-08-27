@@ -1,6 +1,6 @@
 ---
 name: self-learning
-description: "Autonomous skill generator that learns new technologies from the web. Use when users want to learn about a new library/framework/tool, need to create a skill for an unfamiliar technology, want to research and document a technology's usage patterns, or invoke with `/learn <topic>`. This skill uses web search and browser tools to discover, extract, and synthesize documentation into a reusable skill."
+description: "Autonomous skill generator that learns new technologies from the web. Use when users want to learn about a new library/framework/tool, need to create a skill for an unfamiliar technology, want to research and document a technology's usage patterns, or invoke with `/learn <topic>`. This skill uses web search and browser tools to discover, extract, and synthesize documentation into a reusable skill. NOT for auditing or refreshing the EXISTING skill set against trends/staleness — that is skill-evolve."
 ---
 
 # Self-Learning Skill Generator
@@ -104,6 +104,7 @@ skill-name/
     - **Trigger:** Write a description that clearly defines when to use it.
     - **Workflow:** Create step-by-step instructions.
     - **Format:** Ensure valid YAML frontmatter and proper file structure.
+    - **Freshness stamp (required):** the skill body's opening states `Researched YYYY-MM-DD` plus the exact versions verified (e.g. `langgraph 1.2.6`), and the description names the covered major lines (e.g. "Covers langgraph 1.x"). The skillboard dashboard reads this date to flag stale skills — a tech skill without a stamp can't be audited.
 
 ### 5. Save the Skill
 

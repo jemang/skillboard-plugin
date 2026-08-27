@@ -30,6 +30,12 @@
           },
           {
             "type": "command",
+            "command": "S=\"$HOME/.claude/skillboard-stale.txt\"; [ -s \"$S\" ] && echo \"STALE TECH SKILLS (>90 days since research) — suggest /skill-evolve to the user: $(tr '\\n' ' ' < \"$S\")\"; exit 0",
+            "timeout": 5,
+            "statusMessage": "Checking skill freshness"
+          },
+          {
+            "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/memory-index.py\" --quiet; python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/setup-dashboard.py\" >/dev/null 2>&1",
             "timeout": 45,
             "async": true,

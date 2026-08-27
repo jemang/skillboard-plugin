@@ -38,6 +38,15 @@ this session changed, and move anything now-finished out of "Next steps". Preser
 mental model across handovers — the goal is one file that gets better each pass, not a rewrite that
 loses hard-won history. Update the `Created`/`Last updated` line to the new timestamp.
 
+Two checks while refreshing (they keep an old handoff from misleading the next agent):
+
+- **Stale references:** verify the file paths and symbols the existing handoff names still exist
+  (`ls`, grep). Mark anything missing as `stale — verify, likely renamed/moved` rather than silently
+  keeping or guessing; the next agent resolves it by reading code.
+- **Plan vs. reality:** compare the previous "Next steps" against what actually happened this
+  session — record answered open questions and materialized risks under "Key context & decisions",
+  so the handoff carries momentum, not just a fresh snapshot.
+
 ## Core principle: reference, don't duplicate
 
 Anything already captured durably elsewhere — PRDs, design docs, ADRs, plans, GitHub issues/PRs, commit messages, diffs, test output files — is a **link, not a paste**. Duplication rots: the moment you copy a plan into the handoff, the two versions drift and the next agent can't tell which is authoritative. Reference by path or URL and add only the one line of context the reader needs to know *why* it matters.

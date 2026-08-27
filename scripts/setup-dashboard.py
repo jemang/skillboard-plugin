@@ -109,8 +109,27 @@ def _scan_skills(root):
         m = re.search(r"^description:\s*>?-?\s*\"?(.+?)\"?$", txt, re.M)
         if m:
             desc = m.group(1)
-        out.append((d, desc[:110] + ("…" if len(desc) > 110 else ""), p))
+        dates = re.findall(r"[Rr]e(?:searched|-verified)\s+(\d{4}-\d{2}-\d{2})", txt)
+        stamp = max(dates) if dates else ""
+        out.append((d, desc[:110] + ("…" if len(desc) > 110 else ""), p, stamp))
     return out
+
+
+def skill_age_days(stamp):
+    try:
+        return int((time.time() - time.mktime(time.strptime(stamp, "%Y-%m-%d"))) // 86400)
+    except (ValueError, TypeError, OverflowError):
+        return None
+
+
+def age_badge(stamp):
+    age = skill_age_days(stamp) if stamp else None
+    if age is None:
+        return ""
+    if age > 90:
+        return ('<span class="pill" style="color:var(--warn);border-color:var(--warn)">'
+                f'stale — researched {age}d ago</span>')
+    return f'<span class="pill">researched {age}d ago</span>'
 
 
 def skills():
@@ -355,6 +374,17 @@ def main():
     corpus = by.get("auto-memory", 0) + by.get("brain", 0)
     plug_sk, loc_sk = safe(skills, ([], []))
     sk = plug_sk + loc_sk
+
+    # stale-skill state file for the SessionStart freshness nag (names only)
+    def _write_stale():
+        stale = [t[0] for t in sk if t[3] and (skill_age_days(t[3]) or 0) > 90]
+        f = os.path.join(H, ".claude", "skillboard-stale.txt")
+        if stale:
+            with open(f, "w", encoding="utf-8") as fh:
+                fh.write("\n".join(stale) + "\n")
+        elif os.path.exists(f):
+            os.remove(f)
+    safe(_write_stale, None)
     cfg = safe(settings, {})
     hk = safe(lambda: hooks_rows(cfg), [])
     plugins = [k.split("@")[0] for k, v in (cfg.get("enabledPlugins") or {}).items() if v]
@@ -445,17 +475,18 @@ def main():
     inst_badge = ('<span class="pill ok">&#10003; installed</span>' if sb_ok else
                   '<span class="pill" style="color:var(--warn);border-color:var(--warn)">not active</span>')
 
-    def card(n, d, p):
+    def card(n, d, p, stamp=""):
         link = (f"https://github.com/{REPO}/blob/main/skills/{n}/SKILL.md" if REPO else p)
         return (f'<div class="card"><div class="card-head">'
-                f'<span class="mono card-name">{esc(n)}</span> {inst_badge}'
+                f'<span class="mono card-name">{esc(n)}</span> {inst_badge} {age_badge(stamp)}'
                 f'<button class="copy" data-link="{esc(link)}" onclick="cp(this)">copy link</button></div>'
                 f'<p class="dim card-desc">{esc(d)}</p>'
                 f'<p class="card-url">{esc(link)}</p></div>')
 
-    plug_cards = "".join(card(n, d, p) for n, d, p in plug_sk)
+    plug_cards = "".join(card(*t) for t in plug_sk)
     skills_rows = "".join(
-        f'<tr><td>{vslink(p, n)}</td><td class="dim">{esc(d)}</td></tr>' for n, d, p in loc_sk)
+        f'<tr><td>{vslink(p, n)}</td><td class="dim">{esc(d)} {age_badge(stamp)}</td></tr>'
+        for n, d, p, stamp in loc_sk)
 
     ok_badge = '<span class="status ok">&#10003; installed</span>'
     no_badge = '<span class="status warn">not installed</span>'

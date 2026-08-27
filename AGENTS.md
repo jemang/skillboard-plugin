@@ -13,6 +13,7 @@ Portable agent setup. On Codex this ships **skills + these instructions**, and C
 | Choosing between viable tech/product routes | `skills/decision-routes/` |
 | Writing onboarding / dev documentation | `skills/dev-docs/` |
 | A multi-step workflow repeats and should be frozen | `skills/self-learning/` |
+| Skills possibly outdated / trending-skill check / periodic skill audit | `skills/skill-evolve/` — research inline with web search here (no Agent tool on Codex) |
 | Bootstrapping a fresh machine | `skills/skillboard-init/` |
 
 ## Standing discipline

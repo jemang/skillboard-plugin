@@ -21,7 +21,7 @@ Required: `python3` (3.9+), `jq`. Optional (features degrade silently without th
 If missing, ask the user for values then write (defaults shown):
 
 ```json
-{ "dev_root": "~/development", "brain_dir": "~/remember", "codex_dir": "~/.codex", "corpus_trigger": 50, "repo": "" }
+{ "dev_root": "~/development", "brain_dir": "~/remember", "codex_dir": "~/.codex", "repo": "" }
 ```
 
 **If it already exists, reconcile it** — an older config predates keys the template gained later, and writing-only-when-missing lets that drift forever. Compare its keys against `$ROOT/templates/skillboard.config.json`:
@@ -63,7 +63,7 @@ After edits: `jq -e . ~/.claude/settings.json` must parse.
 
 ### 6. Companion plugins (offer, never auto-install)
 
-Show the Recommended list with install commands (same list as the dashboard Setup tab): superpowers, caveman, remember, token-optimizer, security-guidance, context7, frontend-design + CLI tools rtk/codegraph. Let the user pick.
+Show the Recommended list with install commands (same list as the dashboard Setup tab): superpowers, caveman, remember, security-guidance, context7, frontend-design + CLI tools rtk/codegraph. Let the user pick.
 
 ### 7. Codex bootstrap (optional)
 

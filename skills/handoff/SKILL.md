@@ -110,6 +110,10 @@ commits, key source files, docs. This replaces pasting their contents.>
 <See below.>
 ```
 
+## Staleness — the reader weighs age
+
+`Last updated` is not decoration; it tells the next agent how much to trust the rest. If real time has passed, "Current state" is a claim to re-verify (`git log`, `git status`, the test suite) before building on it — work may have continued outside this file. Say that in one line inside the document when the gap is likely to matter, so the next agent checks instead of assuming.
+
 ## The "Suggested skills" section
 
 This is what turns a summary into an actionable handoff. Look at what the next steps require and recommend the specific skills the fresh agent should invoke, each with a one-line reason tied to the next step it serves. Pull from the skills actually available in the environment — don't invent skill names. Common fits:

@@ -31,7 +31,6 @@ CFG = _cfg()
 DEV = os.path.expanduser(CFG.get("dev_root") or "~/development")
 BRAIN = os.path.expanduser(CFG.get("brain_dir") or "~/remember")
 REPO = CFG.get("repo") or ""  # "owner/skillboard" -> enables copy-link cards
-TRIGGER = int(CFG.get("corpus_trigger") or 50)
 PLUGIN_GLOB = os.path.join(H, ".claude", "plugins", "cache", "skillboard", "skillboard", "*")
 
 
@@ -298,9 +297,6 @@ RECOMMENDED = [
     ("remember", "plugin", "remember@",
      "personal second brain: capture + weekly session distillation",
      "/plugin marketplace add remember-md/marketplace → /plugin install remember@remember-md"),
-    ("token-optimizer", "plugin", "token-optimizer@",
-     "usage trends, quality scores, optimization audit + its own dashboard",
-     "/plugin marketplace add alexgreensh/token-optimizer → /plugin install token-optimizer@alexgreensh-token-optimizer"),
     ("security-guidance", "plugin", "security-guidance@",
      "flags insecure patterns as you code",
      "/plugin install security-guidance@claude-plugins-official"),
@@ -412,7 +408,7 @@ def main():
                   '<p class="note">Live from the same source as /usage · Pro plan</p>'
                   if usage else "")
 
-    # hero status banner (token-optimizer style): one-line health verdict
+    # hero status banner: one-line health verdict
     issues = []
     for lb, p, sev, _ in usage:
         if sev == "critical":
@@ -421,8 +417,6 @@ def main():
         issues.append("weekly /remember:process overdue")
     if idx_age > 2 * 86400:
         issues.append("memory index stale >2d")
-    if corpus >= TRIGGER:
-        issues.append(f"memory corpus hit {corpus}/{TRIGGER} — SQLite plan trigger")
     if issues:
         banner = ('<div class="banner warn-b">&#9888; ' +
                   " · ".join(esc(i) for i in issues) + "</div>")
@@ -461,7 +455,6 @@ def main():
         f'<option value="{esc(o)}"{" selected" if o == "global" else ""}>{esc(o)} ({mem_by_origin[o]})</option>'
         for o in ordered if o in mem_by_origin)
 
-    trig_pct = 100 * corpus / TRIGGER
     maint = ("<span class='status ok'>&#10003; done recently</span>" if days_ago is not None and days_ago <= 7
              else "<span class='status warn'>&#9888; overdue — run /remember:process</span>")
     maint_sub = (f"last run {days_ago:.1f}d ago · next due in {due_in:.1f}d"
@@ -517,7 +510,7 @@ def main():
 <li><span class="mono">/skillboard-init</span> — deps, config, shims, settings, CLAUDE.md</li>
 <li>Add alias: <span class="mono">alias skillboard='python3 ~/.claude/scripts/setup-dashboard.py --open'</span></li>
 </ol>
-<p class="note">Config file: <span class="mono">~/.claude/skillboard.json</span> — keys: dev_root (repo scan root), brain_dir (remember brain, "" to disable), corpus_trigger (SQLite plan threshold), repo (owner/skillboard for the copy-link cards).</p>"""
+<p class="note">Config file: <span class="mono">~/.claude/skillboard.json</span> — keys: dev_root (repo scan root), brain_dir (remember brain, "" to disable), codex_dir (Codex home, "" to disable), repo (owner/skillboard for the copy-link cards).</p>"""
     hk_groups = {}
     for s, e, n in hk:
         hk_groups.setdefault(s, []).append((e, n))
@@ -681,8 +674,9 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 
 <section id="memory">
 <div class="grid2"><div>
-<table><tr><td>SQLite-index trigger progress</td><td class="num">{corpus}/{TRIGGER}</td>
-<td class="cell-bar">{bar(trig_pct)}</td></tr>{src_rows}</table>
+<table><tr><td>Personal memory files</td><td class="num">{corpus}</td>
+<td class="dim">auto-memory + brain</td></tr>{src_rows}</table>
+<p class="note">FTS index (phase 1) is built and live. A semantic lane stays deferred until vague-phrasing recall actually fails — volume alone is not the trigger.</p>
 <p class="note">Index is disposable — files are the only truth. Refresh: <span class="mono">python3 ~/.claude/scripts/memory-index.py</span></p>
 </div><div>
 <table><tr><td>Weekly maintenance</td><td colspan="2">{maint}</td></tr>
@@ -743,7 +737,7 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 <tr><td>Source of truth</td><td class="mono">github.com/{esc(REPO or "<owner>/<repo>")} → local clone</td></tr>
 <tr><td>Installed copy</td><td class="mono">~/.claude/plugins/cache/skillboard/skillboard/&lt;version&gt;/</td><td class="dim">point-in-time copy; re-syncs only on version bump + plugin update</td></tr>
 <tr><td>Stable entry points</td><td class="mono">~/.claude/scripts/*.py</td><td class="dim">2-line shims that always run the newest cache version</td></tr>
-<tr><td>Machine config</td><td class="mono">~/.claude/skillboard.json</td><td class="dim">dev_root, brain_dir, codex_dir, corpus_trigger, repo — set by /skillboard-init</td></tr>
+<tr><td>Machine config</td><td class="mono">~/.claude/skillboard.json</td><td class="dim">dev_root, brain_dir, codex_dir, repo — set by /skillboard-init</td></tr>
 </table>
 
 <h2>Changing the plugin</h2>

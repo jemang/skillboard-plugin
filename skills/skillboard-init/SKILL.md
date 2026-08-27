@@ -24,6 +24,14 @@ If missing, ask the user for values then write (defaults shown):
 { "dev_root": "~/development", "brain_dir": "~/remember", "codex_dir": "~/.codex", "corpus_trigger": 50, "repo": "" }
 ```
 
+**If it already exists, reconcile it** — an older config predates keys the template gained later, and writing-only-when-missing lets that drift forever. Compare its keys against `$ROOT/templates/skillboard.config.json`:
+
+```bash
+python3 -c 'import json,os;t=json.load(open("'"$ROOT"'/templates/skillboard.config.json"));c=json.load(open(os.path.expanduser("~/.claude/skillboard.json")));m={k:v for k,v in t.items() if k not in c};print(json.dumps(m) if m else "config complete")'
+```
+
+All keys present → report `already configured`. Otherwise list each missing key with its default and what it controls, say whether the code already falls back to that same value (most do — then it is cosmetic, not a break), and offer to add them. Never change a key the user already set.
+
 - `dev_root`: where their repos live (continuity + plan scanning).
 - `brain_dir`: remember-plugin brain path, `""` if they don't use it.
 - `codex_dir`: Codex CLI home (its native memories get indexed too), `""` if no Codex.

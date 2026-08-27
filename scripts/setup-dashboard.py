@@ -472,14 +472,15 @@ def main():
     sb_caches = glob.glob(PLUGIN_GLOB)
     sb_ver = os.path.basename(newest_cache(sb_caches)) if sb_caches else ""
     sb_ok = sb_enabled and bool(sb_ver)
-    inst_badge = ('<span class="pill ok">&#10003; installed</span>' if sb_ok else
+    inst_badge = (f'<span class="pill ok" title="Installed — enabled from cache v{esc(sb_ver)}">&#10003;</span>'
+                  if sb_ok else
                   '<span class="pill" style="color:var(--warn);border-color:var(--warn)">not active</span>')
 
     def card(n, d, p, stamp=""):
         link = (f"https://github.com/{REPO}/blob/main/skills/{n}/SKILL.md" if REPO else p)
         return (f'<div class="card"><div class="card-head">'
                 f'<span class="mono card-name">{esc(n)}</span> {inst_badge} {age_badge(stamp)}'
-                f'<button class="copy" data-link="{esc(link)}" onclick="cp(this)">copy link</button></div>'
+                f'<button class="copy" data-link="{esc(link)}" onclick="cp(this)">copy</button></div>'
                 f'<p class="dim card-desc">{esc(d)}</p>'
                 f'<p class="card-url">{esc(link)}</p></div>')
 
@@ -546,7 +547,9 @@ def main():
 
     page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Skillboard</title><style>
+<title>Skillboard</title>
+<script>try{{var _t=localStorage.getItem('sb-theme');
+if(_t)document.documentElement.dataset.theme=_t}}catch(e){{}}</script><style>
 :root {{ --s1:#fcfcfb; --s2:#f1f1ef; --ink:#0b0b0b; --ink2:#52514e; --ink3:#8a887f;
   --line:#e2e1dc; --blue:#2a78d6; --ok:#008300; --warn:#c98500; --acc:#eb6834; --crit:#e34948; }}
 @media (prefers-color-scheme: dark) {{ :root {{ --s1:#1a1a19; --s2:#232322; --ink:#fff;
@@ -559,7 +562,7 @@ def main():
 body {{ background:var(--s1); color:var(--ink); font:15px/1.5 -apple-system,'Segoe UI',sans-serif;
   max-width:1000px; margin:0 auto; padding:28px 20px 64px }}
 header {{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px }}
-h1 {{ font-size:20px; letter-spacing:.02em }}
+h1 {{ font-size:20px; letter-spacing:-.02em; font-weight:700 }}
 h2 {{ font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--acc);
   font-weight:650; margin:26px 0 10px }}
 .gen {{ color:var(--ink3); font-size:12px }}
@@ -571,7 +574,7 @@ h2 {{ font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(
 .delta {{ color:var(--ink3); font-size:15px; font-weight:400; text-decoration:line-through }}
 .pill {{ display:inline-block; border:1px solid var(--line); color:var(--ink3);
   border-radius:99px; padding:0 8px; font-size:10px; letter-spacing:.06em; font-weight:650;
-  vertical-align:1px }}
+  vertical-align:1px; white-space:nowrap; flex:none }}
 .pill.ok {{ color:var(--ok); border-color:var(--ok) }}
 td.pct {{ width:5ch; text-align:right; font-size:12px }}
 td.rst {{ width:15ch; text-align:right; font-size:12px; white-space:nowrap }}
@@ -580,28 +583,42 @@ td.rst {{ width:15ch; text-align:right; font-size:12px; white-space:nowrap }}
 .badge.warn-d {{ color:var(--warn); border-color:var(--warn) }}
 .cards {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px }}
 .card {{ background:var(--s2); border:1px solid var(--line); border-radius:10px; padding:12px 14px }}
-.card-head {{ display:flex; align-items:center; gap:8px }}
-.card-name {{ font-weight:650; flex:1 }}
+.card-head {{ display:flex; align-items:center; gap:8px; flex-wrap:wrap }}
+.card-name {{ font-weight:650; flex:1 1 auto; min-width:0; word-break:break-word }}
 .card-desc.full {{ display:block; -webkit-line-clamp:unset }}
 .card-desc {{ font-size:12.5px; margin:6px 0 4px; display:-webkit-box; -webkit-line-clamp:3;
   -webkit-box-orient:vertical; overflow:hidden }}
 .card-url {{ font-size:10.5px; color:var(--ink3); word-break:break-all; font-family:ui-monospace,Menlo,monospace }}
 button.copy {{ background:var(--acc); color:#fff; border:none; border-radius:6px;
-  padding:3px 10px; font-size:11px; font-weight:650; cursor:pointer }}
+  padding:3px 10px; font-size:11px; font-weight:650; cursor:pointer;
+  white-space:nowrap; flex:none }}
 button.copy:active {{ opacity:.7 }}
 .steps li {{ margin:6px 0 }}
 .steps {{ padding-left:22px }}
 td.inst {{ font-size:11px; max-width:34ch; white-space:normal; word-break:break-word }}
 button#th {{ background:var(--s2); color:var(--ink2); border:1px solid var(--line);
   border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px }}
-nav {{ display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:20px }}
+nav {{ display:flex; flex-wrap:wrap; gap:4px; border-bottom:1px solid var(--line);
+  margin-bottom:20px }}
 nav a {{ padding:8px 14px; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
   color:var(--ink3); text-decoration:none; border-bottom:2px solid transparent; cursor:pointer }}
 nav a.on {{ color:var(--ink); border-bottom-color:var(--blue) }}
+nav a:hover {{ color:var(--ink2) }}
+nav a:focus-visible, button:focus-visible, summary:focus-visible, .flink:focus-visible {{
+  outline:2px solid var(--blue); outline-offset:2px; border-radius:4px }}
+details.fold summary {{ cursor:pointer; font-size:12.5px; color:var(--ink2); padding:4px 0;
+  list-style:none }}
+details.fold summary::-webkit-details-marker {{ display:none }}
+details.fold summary::before {{ content:'\\25B8'; display:inline-block; width:14px;
+  color:var(--ink3); transition:transform .15s ease }}
+details.fold[open] summary::before {{ transform:rotate(90deg) }}
+details.fold summary:hover {{ color:var(--ink) }}
+@media (prefers-reduced-motion: reduce) {{ * {{ transition:none !important }} }}
 section {{ display:none }} section.on {{ display:block }}
 .tiles {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px }}
 .tile {{ background:var(--s2); border:1px solid var(--line); border-radius:10px; padding:14px 16px }}
-.tile-num {{ font-size:28px; font-weight:650; font-variant-numeric:tabular-nums }}
+.tile-num {{ font-size:30px; font-weight:650; letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums }}
 .tile-label {{ color:var(--ink2); font-size:13px }}
 .tile-sub {{ color:var(--ink3); font-size:11px; margin-top:2px }}
 table {{ width:100%; border-collapse:collapse; font-size:13.5px }}
@@ -637,17 +654,18 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 </style></head><body data-gen="{gen_epoch}">
 <header><h1>Skill<span style="color:var(--acc)">board</span></h1>
 <div><span class="gen" id="age">generated {now}</span>
-<button id="th" onclick="t()">theme</button></div></header>
+<button id="th" onclick="t()" aria-label="Switch between light and dark theme"
+ title="Switch between light and dark theme">theme</button></div></header>
 
 {banner}
 
-<nav>
-<a data-tab="overview" class="on">Overview</a>
-<a data-tab="memory">Memory<span class="badge{' warn-d' if (days_ago is None or days_ago > 7) else ''}">{mem_total}</span></a>
-<a data-tab="skills">Skills<span class="badge">{len(sk)}</span></a>
-<a data-tab="plans">Plans<span class="badge">{len(pl)}</span></a>
-<a data-tab="how">How it works</a>
-<a data-tab="setup">Setup</a>
+<nav role="tablist">
+<a data-tab="overview" class="on" role="tab" tabindex="0" aria-selected="true">Overview</a>
+<a data-tab="memory" role="tab" tabindex="0" aria-selected="false">Memory<span class="badge{' warn-d' if (days_ago is None or days_ago > 7) else ''}">{mem_total}</span></a>
+<a data-tab="skills" role="tab" tabindex="0" aria-selected="false">Skills<span class="badge">{len(sk)}</span></a>
+<a data-tab="plans" role="tab" tabindex="0" aria-selected="false">Plans<span class="badge">{len(pl)}</span></a>
+<a data-tab="how" role="tab" tabindex="0" aria-selected="false">How it works</a>
+<a data-tab="setup" role="tab" tabindex="0" aria-selected="false">Setup</a>
 </nav>
 
 <section id="overview" class="on">
@@ -656,7 +674,8 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 <h2>Plugins ({len(plugins)})</h2>
 <div class="chips">{plugins_html}</div>
 <h2>Hooks ({n_hooks})</h2>
-<table class="half">{hooks_rows_html}</table>
+<details class="fold"><summary>Per-plugin breakdown — skillboard runs {n_hooks_sb} of {n_hooks}</summary>
+<table class="half">{hooks_rows_html}</table></details>
 <p class="note">Regenerates automatically each session start · manual: <span class="mono">skillboard</span></p>
 </section>
 
@@ -671,7 +690,7 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 <p class="note">Brain: /remember:process weekly → /remember:evolve</p>
 </div></div>
 <h2>Stored memories ({mem_total})</h2>
-<select id="memsel" class="filter" onchange="memflt()">{mem_opts}</select>
+<select id="memsel" class="filter" onchange="memflt()" aria-label="Filter memories by origin">{mem_opts}</select>
 <div class="wrap"><table id="memtab">{mem_rows}</table></div>
 <p class="note">Filter by origin. <span class="mono">auto-memory</span> is keyed by the working dir when written (<span class="mono">global</span> = ~/development); <span class="mono">repo</span> = handoff/.doc/gotchas; <span class="mono">brain</span> = remember plugin. Click a title to open in VS Code — delete it there to remove (index rebuilds next session). <span class="mono">MEMORY.md</span> is an index, not a memory — leave it.</p>
 </section>
@@ -681,7 +700,7 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 <h2>Plugin skills ({len(plug_sk)})</h2>
 <div class="cards">{plug_cards}</div>
 <h2>Local skills ({len(loc_sk)})</h2>
-<input class="filter" placeholder="filter skills…" oninput="flt(this,'sktab')">
+<input class="filter" placeholder="filter skills…" oninput="flt(this,'sktab')" aria-label="Filter local skills">
 <div class="wrap"><table id="sktab">{skills_rows}</table></div>
 <p class="note">&#10003; installed = plugin enabled + skill in cache v{esc(sb_ver)}, registered as <span class="mono">skillboard:&lt;name&gt;</span> · after install/update run <span class="mono">/reload-plugins</span>. Local skills live only on this machine — click a name to open in VS Code.</p>
 </section>
@@ -706,14 +725,16 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 <tr><td>Continuity pointer</td><td class="dim">if the repo has <span class="mono">.doc/</span> plans or <span class="mono">handoff.md</span>, the agent is told to read them before working</td></tr>
 <tr><td>Maintenance nag</td><td class="dim">reminder to run <span class="mono">/remember:process</span> when last run &gt;7 days ago — silent otherwise</td></tr>
 <tr><td>Code-index offer</td><td class="dim">offers <span class="mono">codegraph init</span> in repos missing an index (only if codegraph installed)</td></tr>
+<tr><td>Skill freshness</td><td class="dim">names any tech skill whose <span class="mono">Researched</span> stamp passed 90 days — suggests <span class="mono">/skill-evolve</span>; silent otherwise</td></tr>
 </table>
 <p class="note">All hooks fail open: a missing optional tool (rtk, codegraph, code-review-graph, remember) = silent no-op, never a broken session. Same chain also fires after each compaction.</p>
 
 <h2>Hook map — {n_hooks_sb} hooks, what fires when</h2>
 <table class="half">
-<tr><td class="mono">SessionStart</td><td class="dim">the 5 items above</td></tr>
+<tr><td class="mono">SessionStart</td><td class="dim">the 6 items above</td></tr>
 <tr><td class="mono">PreCompact / PostCompact</td><td class="dim">save plan-state pointers before context compaction, restore them after</td></tr>
-<tr><td class="mono">PreToolUse (Bash)</td><td class="dim">rtk token-saving rewrite + code-review-graph change detection (both guarded)</td></tr>
+<tr><td class="mono">PreToolUse (Bash)</td><td class="dim">rtk token-saving rewrite (guarded)</td></tr>
+<tr><td class="mono">PreToolUse (Write)</td><td class="dim">blocks a <span class="mono">.doc/</span> filename that breaks the <span class="mono">YYYY-MM-DD-NN-topic-(plan|design)</span> convention, naming the right one</td></tr>
 <tr><td class="mono">PostToolUse (Edit/Write)</td><td class="dim">code-review-graph incremental update (guarded)</td></tr>
 </table>
 
@@ -722,7 +743,7 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 <tr><td>Source of truth</td><td class="mono">github.com/{esc(REPO or "<owner>/<repo>")} → local clone</td></tr>
 <tr><td>Installed copy</td><td class="mono">~/.claude/plugins/cache/skillboard/skillboard/&lt;version&gt;/</td><td class="dim">point-in-time copy; re-syncs only on version bump + plugin update</td></tr>
 <tr><td>Stable entry points</td><td class="mono">~/.claude/scripts/*.py</td><td class="dim">2-line shims that always run the newest cache version</td></tr>
-<tr><td>Machine config</td><td class="mono">~/.claude/skillboard.json</td><td class="dim">dev_root, brain_dir, corpus_trigger, repo — set by /skillboard-init</td></tr>
+<tr><td>Machine config</td><td class="mono">~/.claude/skillboard.json</td><td class="dim">dev_root, brain_dir, codex_dir, corpus_trigger, repo — set by /skillboard-init</td></tr>
 </table>
 
 <h2>Changing the plugin</h2>
@@ -740,15 +761,15 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 </section>
 
 <section id="plans">
-<input class="filter" placeholder="filter plans…" oninput="flt(this,'pltab')">
+<input class="filter" placeholder="filter plans…" oninput="flt(this,'pltab')" aria-label="Filter plans">
 <div class="wrap"><table id="pltab">{plan_rows}</table></div>
-<p class="note">Newest first, across ~/development/.doc and chatbot-pro doc/plans. Click to open.</p>
+<p class="note">Newest first — every <span class="mono">.doc/</span> and <span class="mono">doc/plans/</span> folder found under <span class="mono">{esc(DEV)}</span>. Click to open.</p>
 </section>
 
 <script>
 function t(){{const r=document.documentElement,c=r.dataset.theme||
-(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
-r.dataset.theme=c==='dark'?'light':'dark'}}
+(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'),n=c==='dark'?'light':'dark';
+r.dataset.theme=n;try{{localStorage.setItem('sb-theme',n)}}catch(e){{}}}}
 function cp(b){{navigator.clipboard.writeText(b.dataset.link).then(()=>{{
 const o=b.textContent;b.textContent='copied!';setTimeout(()=>b.textContent=o,1200)}})}}
 function flt(inp,id){{const q=inp.value.toLowerCase();
@@ -757,15 +778,14 @@ tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none'}}
 function memflt(){{const s=document.getElementById('memsel');if(!s)return;
 for(const tr of document.getElementById('memtab').rows)
 tr.style.display=(s.value==='all'||tr.dataset.o===s.value)?'':'none'}}
-document.querySelectorAll('nav a').forEach(a=>a.onclick=()=>{{
-document.querySelectorAll('nav a,section').forEach(x=>x.classList.remove('on'));
+function go(a){{document.querySelectorAll('nav a,section').forEach(x=>x.classList.remove('on'));
+document.querySelectorAll('nav a').forEach(x=>x.setAttribute('aria-selected',x===a));
 a.classList.add('on');document.getElementById(a.dataset.tab).classList.add('on');
-location.hash=a.dataset.tab}});
-const h=location.hash.slice(1);
-if(h&&document.getElementById(h)){{document.querySelector('nav a.on').classList.remove('on');
-document.querySelector('section.on').classList.remove('on');
-document.querySelector(`nav a[data-tab=${{h}}]`).classList.add('on');
-document.getElementById(h).classList.add('on')}}
+location.hash=a.dataset.tab}}
+document.querySelectorAll('nav a').forEach(a=>{{a.onclick=()=>go(a);
+a.onkeydown=e=>{{if(e.key==='Enter'||e.key===' '){{e.preventDefault();go(a)}}}}}});
+const h=location.hash.slice(1),ha=h&&document.querySelector(`nav a[data-tab=${{h}}]`);
+if(ha&&document.getElementById(h))go(ha);
 const ageH=(Date.now()/1000-+document.body.dataset.gen)/3600;
 if(ageH>24){{const e=document.getElementById('age');
 e.classList.add('stale');e.textContent+=` · STALE ${{ageH.toFixed(0)}}h — run: dash`}}

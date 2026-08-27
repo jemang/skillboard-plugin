@@ -17,6 +17,7 @@ import time
 
 H = os.path.expanduser("~")
 OUT = os.path.join(H, ".claude", "skillboard.html")
+DASH_COMMAND = "skillboard"
 
 
 def _cfg():
@@ -84,9 +85,10 @@ def mem_loc(source, path):
 
 
 def mem_origin(source, path):
-    """Compact filter key: repo top-folder / brain / codex / auto-memory project slug."""
+    """Compact filter key: repo top-folder / brain section / codex / auto-memory project slug."""
     if source == "brain":
-        return "brain"
+        rel = os.path.relpath(os.path.dirname(path), BRAIN)
+        return "brain" if rel == "." else "brain/" + rel.split(os.sep)[0]
     if source == "codex":
         return "codex"
     if source == "repo":
@@ -193,26 +195,35 @@ def maintenance():
 
 
 def brain():
+    """Counts per real top-level brain section, so the totals reconcile with the
+    `brain/<section>` filter keys instead of a hand-picked subset of folders."""
     b = BRAIN
-    def count(sub, rec=False):
-        base = os.path.join(b, sub)
-        if not os.path.isdir(base):
-            return 0
-        if not rec:
-            return len([f for f in os.listdir(base) if f.endswith(".md")])
-        return sum(len([f for f in fs if f.endswith(".md")]) for _, _, fs in os.walk(base))
+    out = {}
+    if os.path.isdir(b):
+        secs = []
+        for d in sorted(os.listdir(b)):
+            p = os.path.join(b, d)
+            if not os.path.isdir(p) or d.startswith("."):
+                continue
+            n = sum(len([f for f in fs if f.endswith(".md")]) for _, _, fs in os.walk(p))
+            if n:
+                secs.append((n, d))
+        for n, d in sorted(secs, reverse=True):
+            out[d] = (n, "brain/" + d)
+        root = len([f for f in os.listdir(b) if f.endswith(".md")])
+        if root:
+            out["(root)"] = (root, "brain")
     beliefs = 0
     m = safe(lambda: open(os.path.join(b, "Persona.md"), encoding="utf-8").read(), "")
     sec = re.search(r"## Top Beliefs\n(.*?)\n## ", m, re.S)
     if sec:
         beliefs = len(re.findall(r"^\d+\.", sec.group(1), re.M))
-    return {"Notes": count("Notes"), "Journal": count("Journal"),
-            "Projects": count("Projects", rec=True), "Patterns": count("Resources/patterns"),
-            "Top beliefs": beliefs}
+    out["Top beliefs"] = (beliefs, "")
+    return out
 
 
 def plans():
-    """Discover plan dirs under dev_root: any `.doc/` or `doc/plans/` (depth ≤4)."""
+    """Discover every plan under dev_root: (name, status, path, repo label)."""
     prune = {".git", "node_modules", "vendor", ".venv", "venv", "storage", "dist", "build"}
     dirs = []
     depth0 = DEV.rstrip(os.sep).count(os.sep)
@@ -225,6 +236,15 @@ def plans():
             dirs.append(root)
             subdirs[:] = []
     found = []
+
+    def read_head(path):
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return f.read(2000)
+
+    def origin(path):
+        first = os.path.relpath(path, DEV).split(os.sep)[0]
+        return "development" if first == ".doc" else first
+
     for d in dirs:
         if not os.path.isdir(d):
             continue
@@ -233,12 +253,12 @@ def plans():
                 continue
             p = os.path.join(d, f)
             status = ""
-            head = safe(lambda: open(p, encoding="utf-8", errors="replace").read(2000), "")
+            head = safe(lambda: read_head(p), "")
             m = re.search(r"\*\*Status:?\*\*:?\s*(.+)", head)
             if m:
                 status = m.group(1)[:90]
-            found.append((os.path.getmtime(p), f, status, p))
-    return [x[1:] for x in sorted(found, reverse=True)[:12]]
+            found.append((os.path.getmtime(p), f, status, p, origin(p)))
+    return [x[1:] for x in sorted(found, reverse=True)]
 
 
 def bar(pct, hue="var(--blue)"):
@@ -249,6 +269,90 @@ def bar(pct, hue="var(--blue)"):
 
 def vslink(path, label):
     return f'<a class="mono flink" href="vscode://file{esc(path)}" title="open in VS Code">{esc(label)}</a>'
+
+
+def render_markdown(text):
+    """Render a deliberately small, escaped Markdown subset for local previews."""
+    out, paragraph, items, code = [], [], [], []
+    in_code = False
+
+    def flush_paragraph():
+        if paragraph:
+            out.append("<p>" + " ".join(esc(line.strip()) for line in paragraph) + "</p>")
+            paragraph.clear()
+
+    def flush_items():
+        if items:
+            out.append("<ul>" + "".join("<li>" + esc(item) + "</li>" for item in items) + "</ul>")
+            items.clear()
+
+    for line in text.splitlines():
+        if line.startswith("```"):
+            flush_paragraph()
+            flush_items()
+            if in_code:
+                out.append("<pre><code>" + esc("\n".join(code)) + "</code></pre>")
+                code.clear()
+            in_code = not in_code
+            continue
+        if in_code:
+            code.append(line)
+            continue
+        heading = re.match(r"^(#{1,3})\s+(.+)$", line)
+        if heading:
+            flush_paragraph()
+            flush_items()
+            level = len(heading.group(1))
+            out.append(f"<h{level}>{esc(heading.group(2))}</h{level}>")
+            continue
+        item = re.match(r"^[-*]\s+(.+)$", line)
+        if item:
+            flush_paragraph()
+            items.append(item.group(1))
+            continue
+        if not line.strip():
+            flush_paragraph()
+            flush_items()
+            continue
+        flush_items()
+        paragraph.append(line)
+
+    if in_code:
+        out.append("<pre><code>" + esc("\n".join(code)) + "</code></pre>")
+    flush_paragraph()
+    flush_items()
+    return "".join(out)
+
+
+def file_preview(path, limit=12000):
+    """Read a bounded local Markdown preview; unavailable files remain absent."""
+    def read_file():
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return f.read(limit + 1)
+
+    text = safe(read_file, None)
+    if text is None:
+        return None
+    truncated = len(text) > limit
+    preview = text[:limit]
+    return {"path": path, "folder": os.path.dirname(path), "html": render_markdown(preview),
+            "truncated": truncated}
+
+
+def capped_previews(groups, limit=6000):
+    """Build preview payloads from ordered file groups with independent budgets."""
+    previews, previewed = {}, set()
+    for paths, budget in groups:
+        remaining = budget
+        for path in dict.fromkeys(paths):
+            if path in previewed or remaining < 1200:
+                continue
+            preview = file_preview(path, limit=min(limit, remaining))
+            if preview:
+                previews[path] = preview
+                previewed.add(path)
+                remaining -= len(preview["html"])
+    return previews
 
 
 def plan_usage():
@@ -354,35 +458,62 @@ def delta(prev, key, cur):
     return f'<span class="delta">{esc(old)} →</span> '
 
 
+def plan_state(status):
+    s = status.lower()
+    if "block" in s:
+        return "blocked"
+    if "ready" in s or "in progress" in s or "in-progress" in s or "active" in s:
+        return "active"
+    return ""
+
+
+def resumable_plans(items):
+    return [item for item in items if plan_state(item[1])]
+
+
+def grouped_plans(items):
+    """Plans grouped by the existing repository label, preserving recency within each group."""
+    groups = {}
+    for item in items:
+        groups.setdefault(item[3], []).append(item)
+    return [(origin, groups[origin]) for origin in sorted(groups)]
+
+
 def plan_pill(status):
     s = status.lower()
     if not status:
         return ""
     if "built" in s or "✅" in status or "done" in s or "complete" in s:
         return '<span class="pill ok">SHIPPED</span> '
+    if plan_state(status) == "active":
+        return '<span class="pill active">ACTIVE</span> '
+    if plan_state(status) == "blocked":
+        return '<span class="pill blocked">BLOCKED</span> '
     if "deferred" in s or "planning" in s:
         return '<span class="pill">PLANNED</span> '
     return ""
 
 
 def main():
-    by, mem_total, idx_age = safe(mem_stats, ({}, 0, 0))
+    by, mem_total, idx_age = safe(mem_stats, ({}, 0, None))
     corpus = by.get("auto-memory", 0) + by.get("brain", 0)
     plug_sk, loc_sk = safe(skills, ([], []))
     sk = plug_sk + loc_sk
+    stale_skills = [t[0] for t in sk if t[3] and (skill_age_days(t[3]) or 0) > 90]
 
     # stale-skill state file for the SessionStart freshness nag (names only)
     def _write_stale():
-        stale = [t[0] for t in sk if t[3] and (skill_age_days(t[3]) or 0) > 90]
         f = os.path.join(H, ".claude", "skillboard-stale.txt")
-        if stale:
+        if stale_skills:
             with open(f, "w", encoding="utf-8") as fh:
-                fh.write("\n".join(stale) + "\n")
+                fh.write("\n".join(stale_skills) + "\n")
         elif os.path.exists(f):
             os.remove(f)
     safe(_write_stale, None)
-    cfg = safe(settings, {})
-    hk = safe(lambda: hooks_rows(cfg), [])
+    cfg_raw = safe(settings, None)
+    cfg = cfg_raw or {}
+    hk_raw = safe(lambda: hooks_rows(cfg), None)
+    hk = hk_raw or []
     plugins = [k.split("@")[0] for k, v in (cfg.get("enabledPlugins") or {}).items() if v]
     days_ago, due_in = safe(maintenance, (None, None))
     br = safe(brain, {})
@@ -413,11 +544,21 @@ def main():
     for lb, p, sev, _ in usage:
         if sev == "critical":
             issues.append(f"{lb} at {p}% — nearly maxed")
-    if days_ago is None or days_ago > 7:
+    if days_ago is not None and days_ago > 7:
         issues.append("weekly /remember:process overdue")
-    if idx_age > 2 * 86400:
+    if idx_age is not None and idx_age > 2 * 86400:
         issues.append("memory index stale >2d")
-    if issues:
+    unknown = []
+    if idx_age is None:
+        unknown.append("memory index unavailable")
+    if days_ago is None:
+        unknown.append("maintenance state unavailable")
+    if cfg_raw is None or hk_raw is None:
+        unknown.append("plugin settings unavailable")
+    if unknown:
+        banner = ('<div class="banner info-b">? Verification unavailable — ' +
+                  " · ".join(esc(i) for i in unknown) + "</div>")
+    elif issues:
         banner = ('<div class="banner warn-b">&#9888; ' +
                   " · ".join(esc(i) for i in issues) + "</div>")
     else:
@@ -425,15 +566,21 @@ def main():
                   'maintenance done, no overdue items.</div>')
 
     tiles = [
-        ("Global skills", len(sk), f"{len(plug_sk)} plugin · {len(loc_sk)} local", "skills"),
-        ("Hooks installed", n_hooks, f"{len({e for _, e, _ in hk})} events · {len({s for s, _, _ in hk})} sources", "hooks"),
-        ("Plugins on", len(plugins), "", "plugins"),
-        ("Memory files indexed", mem_total, f"index refreshed {int(idx_age/60)}m ago", "mem"),
+        ("Global skills", len(sk), f"{len(plug_sk)} plugin · {len(loc_sk)} local", "skills", "skills"),
+        ("Hooks installed", n_hooks, f"{len({e for _, e, _ in hk})} events · {len({s for s, _, _ in hk})} sources", "hooks", ""),
+        ("Plugins on", len(plugins), "", "plugins", ""),
+        ("Memory files indexed", mem_total,
+         f"index refreshed {int(idx_age/60)}m ago" if idx_age is not None else "index unavailable",
+         "mem", "memory"),
     ]
     tiles_html = "".join(
-        f'<div class="tile"><div class="tile-num">{delta(prev, key, v)}{esc(v)}</div>'
-        f'<div class="tile-label">{esc(k)}</div>'
-        f'<div class="tile-sub">{esc(s)}</div></div>' for k, v, s, key in tiles)
+        (f'<button class="tile tile-link" onclick="tabgo(\'{dest}\')" '
+         f'aria-label="View {esc(k).lower()}"><span class="tile-num">{delta(prev, key, v)}{esc(v)}</span>'
+         f'<span class="tile-label">{esc(k)}</span><span class="tile-sub">{esc(s)}</span></button>'
+         if dest else
+         f'<div class="tile"><div class="tile-num">{delta(prev, key, v)}{esc(v)}</div>'
+         f'<div class="tile-label">{esc(k)}</div><div class="tile-sub">{esc(s)}</div></div>')
+        for k, v, s, key, dest in tiles)
 
     src_rows = "".join(
         f'<tr><td>{esc(s)}</td><td class="num">{n}</td>'
@@ -442,21 +589,44 @@ def main():
         for s, n in sorted(by.items(), key=lambda x: -x[1]))
 
     ml = [(src, t, p, mem_origin(src, p)) for src, t, p in safe(mem_list, [])]
+    preview_groups = [
+        ([p for _, _, p, _ in ml if os.path.basename(p) == "handoff.md"], 30000),
+        ([p for _, _, p, _ in ml if os.path.basename(p) != "handoff.md"], 80000),
+        ([p for _, _, p, _ in pl], 60000),
+        ([p for _, _, p, _ in plug_sk] + [p for _, _, p, _ in loc_sk], 40000),
+    ]
+    # lazy: fixed preview budgets keep a static file quick; add on-demand loading only with a local server.
+    previews = capped_previews(preview_groups, limit=6000)
+    previews_json = json.dumps(previews, ensure_ascii=False, separators=(",", ":"))
+    previews_json = previews_json.replace("<", "\\u003c").replace(">", "\\u003e")
+    previews_json = previews_json.replace("&", "\\u0026")
+
+    def reader_link(path, label):
+        if path not in previews:
+            return vslink(path, label)
+        return (f'<button class="mono flink reader-open" data-path="{esc(path)}" '
+                f'onclick="readfile(this.dataset.path)">{esc(label)}</button>')
+
+    def location_button(path):
+        return (f'<button class="location" data-path="{esc(path)}" '
+                f'onclick="showlocation(this.dataset.path)">location</button>')
+
     mem_by_origin = {}
     for _, _, _, o in ml:
         mem_by_origin[o] = mem_by_origin.get(o, 0) + 1
     mem_rows = "".join(
-        f'<tr data-o="{esc(o)}"><td>{vslink(p, t)}</td>'
+        f'<tr data-o="{esc(o)}"><td>{reader_link(p, t)}</td>'
         f'<td class="mono dim">{esc(src)}</td>'
-        f'<td class="dim">{esc(o)}</td></tr>'
+        f'<td class="dim">{esc(o)}</td><td>{location_button(p)}</td></tr>'
         for src, t, p, o in ml)
-    ordered = ["global"] + [o for o, _ in sorted(mem_by_origin.items(), key=lambda x: -x[1]) if o != "global"]
-    mem_opts = f'<option value="all">all ({len(ml)})</option>' + "".join(
-        f'<option value="{esc(o)}"{" selected" if o == "global" else ""}>{esc(o)} ({mem_by_origin[o]})</option>'
+    ordered = [o for o, _ in sorted(mem_by_origin.items(), key=lambda x: -x[1])]
+    mem_opts = f'<option value="all" selected>all ({len(ml)})</option>' + "".join(
+        f'<option value="{esc(o)}">{esc(o)} ({mem_by_origin[o]})</option>'
         for o in ordered if o in mem_by_origin)
 
-    maint = ("<span class='status ok'>&#10003; done recently</span>" if days_ago is not None and days_ago <= 7
-             else "<span class='status warn'>&#9888; overdue — run /remember:process</span>")
+    maint = ("<span class='status unknown'>? unable to verify</span>" if days_ago is None else
+             "<span class='status ok'>&#10003; done recently</span>" if days_ago <= 7 else
+             "<span class='status warn'>&#9888; overdue — run /remember:process</span>")
     maint_sub = (f"last run {days_ago:.1f}d ago · next due in {due_in:.1f}d"
                  if days_ago is not None else "state unknown")
 
@@ -471,15 +641,19 @@ def main():
 
     def card(n, d, p, stamp=""):
         link = (f"https://github.com/{REPO}/blob/main/skills/{n}/SKILL.md" if REPO else p)
+        href = link if REPO else f"vscode://file{p}"
         return (f'<div class="card"><div class="card-head">'
                 f'<span class="mono card-name">{esc(n)}</span> {inst_badge} {age_badge(stamp)}'
-                f'<button class="copy" data-link="{esc(link)}" onclick="cp(this)">copy</button></div>'
+                f'{reader_link(p, "read")}'
+                f'<a class="source" href="{esc(href)}">open source</a>'
+                f'<button class="copy" data-link="{esc(link)}" onclick="cp(this)">copy link</button></div>'
                 f'<p class="dim card-desc">{esc(d)}</p>'
-                f'<p class="card-url">{esc(link)}</p></div>')
+                f'</div>')
 
     plug_cards = "".join(card(*t) for t in plug_sk)
     skills_rows = "".join(
-        f'<tr><td>{vslink(p, n)}</td><td class="dim">{esc(d)} {age_badge(stamp)}</td></tr>'
+        f'<tr><td>{reader_link(p, n)}</td><td class="dim">{esc(d)} {age_badge(stamp)}</td>'
+        f'<td>{location_button(p)}</td></tr>'
         for n, d, p, stamp in loc_sk)
 
     ok_badge = '<span class="status ok">&#10003; installed</span>'
@@ -530,27 +704,49 @@ def main():
         plug_status = (f'<div class="banner warn-b">&#9888; skillboard plugin not fully installed ({esc(missing)}) — '
                        f'run <span class="mono">/plugin install skillboard@skillboard</span> then <span class="mono">/reload-plugins</span>.</div>')
 
-    brain_rows = "".join(f'<tr><td>{esc(k)}</td><td class="num">{v}</td></tr>' for k, v in br.items())
+    def brain_cell(label, origin):
+        if origin:
+            return (f'<button class="jump" onclick="memjump(\'{esc(origin)}\')" '
+                    f'title="Show these files below">{esc(label)}</button>')
+        persona = os.path.join(BRAIN, "Persona.md")
+        return vslink(persona, label) if os.path.isfile(persona) else esc(label)
+
+    brain_rows = "".join(f'<tr><td>{brain_cell(k, o)}</td><td class="num">{n}</td></tr>'
+                         for k, (n, o) in br.items())
     plan_rows = "".join(
-        f'<tr><td>{vslink(p, f)}</td><td class="dim">{plan_pill(s)}{esc(s)}</td></tr>'
-        for f, s, p in pl)
-    plugins_html = " ".join(
-        f'<span class="chip sb">{esc(p)}</span>' if p == "skillboard" else f'<span class="chip">{esc(p)}</span>'
-        for p in sorted(plugins))
+        f'<tr class="grp" data-plan-group="{esc(o)}"><td colspan="4">{esc(o)} '
+        f'<span class="group-count">{len(items)} plans</span></td></tr>'
+        + "".join(
+            f'<tr data-plan-row="{esc(o)}"><td>{reader_link(p, f)}</td><td class="dim">{esc(o)}</td>'
+            f'<td class="dim">{plan_pill(s)}{esc(s) if s else "no status declared"}</td>'
+            f'<td>{location_button(p)}</td></tr>'
+            for f, s, p, _ in items)
+        for o, items in grouped_plans(pl))
+
+    resume = resumable_plans(pl)
+    resume_rows = "".join(
+        f'<tr><td>{reader_link(p, f)}</td><td class="dim">{esc(o)}</td>'
+        f'<td class="dim">{plan_pill(s)}{esc(s)}</td><td>{location_button(p)}</td></tr>'
+        for f, s, p, o in resume[:5])
+    resume_html = (f'<h2>Resume work ({len(resume)})</h2><div class="wrap"><table class="data">'
+                   f'<thead><tr><th>Plan</th><th>Repository</th><th>Status</th><th>Location</th></tr></thead>'
+                   f'<tbody>{resume_rows}</tbody></table></div>'
+                   '<button class="action-link" onclick="tabgo(\'plans\')">view all plans</button>'
+                   if resume else "")
 
     page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Skillboard</title>
 <script>try{{var _t=localStorage.getItem('sb-theme');
 if(_t)document.documentElement.dataset.theme=_t}}catch(e){{}}</script><style>
-:root {{ --s1:#fcfcfb; --s2:#f1f1ef; --ink:#0b0b0b; --ink2:#52514e; --ink3:#8a887f;
-  --line:#e2e1dc; --blue:#2a78d6; --ok:#008300; --warn:#c98500; --acc:#eb6834; --crit:#e34948; }}
+:root {{ --s1:#fcfcfb; --s2:#f1f1ef; --ink:#0b0b0b; --ink2:#52514e; --ink3:#6f6e69;
+  --line:#e2e1dc; --blue:#1f6ec7; --ok:#008300; --warn:#8a5a00; --acc:#b94b20; --crit:#c43f3f; }}
 @media (prefers-color-scheme: dark) {{ :root {{ --s1:#1a1a19; --s2:#232322; --ink:#fff;
-  --ink2:#c3c2b7; --ink3:#8a887f; --line:#33332f; --blue:#3987e5; --ok:#1baf7a; --warn:#eda100; --acc:#d95926; --crit:#e66767; }} }}
+  --ink2:#c3c2b7; --ink3:#aaa89f; --line:#33332f; --blue:#3987e5; --ok:#1baf7a; --warn:#eda100; --acc:#df602b; --crit:#e66767; }} }}
 :root[data-theme=light] {{ --s1:#fcfcfb; --s2:#f1f1ef; --ink:#0b0b0b; --ink2:#52514e;
-  --line:#e2e1dc; --blue:#2a78d6; --ok:#008300; --warn:#c98500; --acc:#eb6834; --crit:#e34948; }}
+  --ink3:#6f6e69; --line:#e2e1dc; --blue:#1f6ec7; --ok:#008300; --warn:#8a5a00; --acc:#b94b20; --crit:#c43f3f; }}
 :root[data-theme=dark] {{ --s1:#1a1a19; --s2:#232322; --ink:#fff; --ink2:#c3c2b7;
-  --line:#33332f; --blue:#3987e5; --ok:#1baf7a; --warn:#eda100; --acc:#d95926; --crit:#e66767; }}
+  --ink3:#aaa89f; --line:#33332f; --blue:#3987e5; --ok:#1baf7a; --warn:#eda100; --acc:#df602b; --crit:#e66767; }}
 * {{ box-sizing:border-box; margin:0 }}
 body {{ background:var(--s1); color:var(--ink); font:15px/1.5 -apple-system,'Segoe UI',sans-serif;
   max-width:1000px; margin:0 auto; padding:28px 20px 64px }}
@@ -564,6 +760,7 @@ h2 {{ font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(
   margin-bottom:16px; border:1px solid }}
 .banner.ok-b {{ color:var(--ok); border-color:var(--ok); background:color-mix(in srgb, var(--ok) 8%, transparent) }}
 .banner.warn-b {{ color:var(--warn); border-color:var(--warn); background:color-mix(in srgb, var(--warn) 8%, transparent) }}
+.banner.info-b {{ color:var(--ink2); border-color:var(--line); background:var(--s2) }}
 .delta {{ color:var(--ink3); font-size:15px; font-weight:400; text-decoration:line-through }}
 .pill {{ display:inline-block; border:1px solid var(--line); color:var(--ink3);
   border-radius:99px; padding:0 8px; font-size:10px; letter-spacing:.06em; font-weight:650;
@@ -581,7 +778,12 @@ td.rst {{ width:15ch; text-align:right; font-size:12px; white-space:nowrap }}
 .card-desc.full {{ display:block; -webkit-line-clamp:unset }}
 .card-desc {{ font-size:12.5px; margin:6px 0 4px; display:-webkit-box; -webkit-line-clamp:3;
   -webkit-box-orient:vertical; overflow:hidden }}
-.card-url {{ font-size:10.5px; color:var(--ink3); word-break:break-all; font-family:ui-monospace,Menlo,monospace }}
+.source {{ color:var(--blue); font-size:11px; font-weight:650; text-decoration:none; white-space:nowrap }}
+.source:hover {{ text-decoration:underline }}
+button.reader-open {{ background:none; border:0; padding:0; cursor:pointer; text-align:left }}
+button.location {{ background:none; border:1px solid var(--line); border-radius:6px; color:var(--ink2);
+  cursor:pointer; font-size:11px; padding:2px 7px; white-space:nowrap }}
+button.location:hover {{ color:var(--blue); border-color:var(--blue) }}
 button.copy {{ background:var(--acc); color:#fff; border:none; border-radius:6px;
   padding:3px 10px; font-size:11px; font-weight:650; cursor:pointer;
   white-space:nowrap; flex:none }}
@@ -597,7 +799,7 @@ nav a {{ padding:8px 14px; font-size:12px; letter-spacing:.08em; text-transform:
   color:var(--ink3); text-decoration:none; border-bottom:2px solid transparent; cursor:pointer }}
 nav a.on {{ color:var(--ink); border-bottom-color:var(--blue) }}
 nav a:hover {{ color:var(--ink2) }}
-nav a:focus-visible, button:focus-visible, summary:focus-visible, .flink:focus-visible {{
+nav a:focus-visible, button:focus-visible, summary:focus-visible, .flink:focus-visible, .source:focus-visible {{
   outline:2px solid var(--blue); outline-offset:2px; border-radius:4px }}
 details.fold summary {{ cursor:pointer; font-size:12.5px; color:var(--ink2); padding:4px 0;
   list-style:none }}
@@ -610,35 +812,66 @@ details.fold summary:hover {{ color:var(--ink) }}
 section {{ display:none }} section.on {{ display:block }}
 .tiles {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px }}
 .tile {{ background:var(--s2); border:1px solid var(--line); border-radius:10px; padding:14px 16px }}
+.tile-link {{ color:var(--ink); cursor:pointer; font:inherit; text-align:left }}
+.tile-link:hover {{ border-color:var(--blue) }}
 .tile-num {{ font-size:30px; font-weight:650; letter-spacing:-.02em;
-  font-variant-numeric:tabular-nums }}
-.tile-label {{ color:var(--ink2); font-size:13px }}
-.tile-sub {{ color:var(--ink3); font-size:11px; margin-top:2px }}
+  font-variant-numeric:tabular-nums; display:block }}
+.tile-label {{ color:var(--ink2); font-size:13px; display:block }}
+.tile-sub {{ color:var(--ink3); font-size:11px; margin-top:2px; display:block }}
 table {{ width:100%; border-collapse:collapse; font-size:13.5px }}
-td {{ padding:6px 10px 6px 0; border-bottom:1px solid var(--line); vertical-align:top }}
+th, td {{ padding:6px 10px 6px 0; border-bottom:1px solid var(--line); vertical-align:top }}
+th {{ color:var(--ink3); font-size:11px; font-weight:650; letter-spacing:.05em; text-align:left; text-transform:uppercase }}
 td.num {{ text-align:right; font-variant-numeric:tabular-nums; width:4ch }}
 td.cell-bar {{ width:38% }}
 .mono {{ font-family:ui-monospace,Menlo,monospace; font-size:12.5px; white-space:nowrap }}
 .dim {{ color:var(--ink2) }}
 .flink {{ color:var(--ink); text-decoration:none; border-bottom:1px dotted var(--ink3) }}
 .flink:hover {{ color:var(--blue); border-bottom-color:var(--blue) }}
+button.jump {{ background:none; border:none; padding:0; font:inherit; color:var(--ink);
+  border-bottom:1px dotted var(--ink3); cursor:pointer }}
+button.jump:hover {{ color:var(--blue); border-bottom-color:var(--blue) }}
 .meter {{ background:var(--s2); border:1px solid var(--line); border-radius:4px; height:12px;
   overflow:hidden }}
 .meter-fill {{ height:100% }}
 .status.ok {{ color:var(--ok); font-weight:600 }}
 .status.warn {{ color:var(--warn); font-weight:600 }}
-.chip {{ display:inline-block; background:var(--s2); border:1px solid var(--line);
-  border-radius:99px; padding:2px 10px; font-size:12px; margin:2px 2px }}
-.chips {{ margin-bottom:4px }}
+.status.unknown {{ color:var(--ink2); font-weight:600 }}
+.action-link {{ background:none; border:1px solid var(--blue); border-radius:6px; color:var(--blue);
+  cursor:pointer; font-size:11px; font-weight:650; padding:3px 10px; white-space:nowrap }}
+.action-link:hover {{ background:color-mix(in srgb, var(--blue) 8%, transparent) }}
+.reader {{ background:var(--s1); border:1px solid var(--line); border-radius:12px; color:var(--ink);
+  max-width:min(860px,calc(100vw - 32px)); max-height:calc(100vh - 32px); padding:0; width:860px }}
+.reader::backdrop {{ background:rgb(0 0 0 / .45) }}
+.reader-head {{ align-items:flex-start; border-bottom:1px solid var(--line); display:flex; gap:16px;
+  justify-content:space-between; padding:18px 20px 14px }}
+.reader-title {{ font-size:17px; letter-spacing:-.02em; margin:0 }}
+.reader-path {{ color:var(--ink3); font-size:11px; margin-top:4px; overflow-wrap:anywhere; white-space:normal }}
+.reader-close {{ background:var(--s2); border:1px solid var(--line); border-radius:6px; color:var(--ink2);
+  cursor:pointer; font-size:12px; padding:4px 9px }}
+.reader-actions {{ display:flex; flex-wrap:wrap; gap:7px; padding:12px 20px; border-bottom:1px solid var(--line) }}
+.reader-actions a {{ color:var(--blue); font-size:12px; font-weight:650; text-decoration:none }}
+.reader-body {{ font-size:14px; line-height:1.6; overflow:auto; padding:18px 20px 26px }}
+.reader-body h1,.reader-body h2,.reader-body h3 {{ color:var(--ink); letter-spacing:-.02em; margin:18px 0 8px;
+  text-transform:none }}
+.reader-body h1 {{ font-size:22px }} .reader-body h2 {{ font-size:18px }} .reader-body h3 {{ font-size:15px }}
+.reader-body p,.reader-body ul {{ margin:0 0 12px }} .reader-body ul {{ padding-left:22px }}
+.reader-body pre {{ background:var(--s2); border:1px solid var(--line); border-radius:8px; overflow:auto; padding:12px }}
+.reader-body code {{ font-family:ui-monospace,Menlo,monospace; font-size:.9em }}
+.reader-truncated {{ color:var(--warn); font-size:12px; font-weight:650 }}
 .half {{ max-width:560px }}
 tr.grp td {{ font-weight:650; border-top:2px solid var(--line); padding-top:8px }}
 tr.grp td.sb {{ color:var(--acc) }}
+.group-count {{ color:var(--ink3); font-size:11px; font-weight:400; margin-left:6px }}
 tr.sub td {{ padding-top:3px; padding-bottom:3px; font-size:13px }}
 td.ind {{ width:16px }}
-.chip.sb {{ border-color:var(--acc); color:var(--acc) }}
 .note {{ color:var(--ink3); font-size:12px; margin-top:6px }}
+.result {{ color:var(--ink3); font-size:12px; margin:-4px 0 8px }}
 .grid2 {{ display:grid; grid-template-columns:1fr 1fr; gap:0 40px }}
-@media (max-width:720px) {{ .grid2 {{ grid-template-columns:1fr }} }}
+@media (max-width:720px) {{
+  .grid2 {{ grid-template-columns:1fr }}
+  table.data .mono {{ white-space:normal; overflow-wrap:anywhere }}
+  table.data td {{ overflow-wrap:anywhere }}
+}}
 .wrap {{ overflow-x:auto }}
 input.filter, select.filter {{ background:var(--s2); color:var(--ink); border:1px solid var(--line);
   border-radius:6px; padding:6px 12px; font-size:13px; width:280px; max-width:100%;
@@ -648,36 +881,46 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 <header><h1>Skill<span style="color:var(--acc)">board</span></h1>
 <div><span class="gen" id="age">generated {now}</span>
 <button id="th" onclick="t()" aria-label="Switch between light and dark theme"
- title="Switch between light and dark theme">theme</button></div></header>
+ aria-pressed="false" title="Switch between light and dark theme">theme</button></div></header>
 
 {banner}
 
 <nav role="tablist">
 <a data-tab="overview" class="on" role="tab" tabindex="0" aria-selected="true">Overview</a>
-<a data-tab="memory" role="tab" tabindex="0" aria-selected="false">Memory<span class="badge{' warn-d' if (days_ago is None or days_ago > 7) else ''}">{mem_total}</span></a>
+<a data-tab="memory" role="tab" tabindex="0" aria-selected="false">Memory<span class="badge{' warn-d' if (days_ago is not None and days_ago > 7) else ''}">{mem_total}</span></a>
 <a data-tab="skills" role="tab" tabindex="0" aria-selected="false">Skills<span class="badge">{len(sk)}</span></a>
 <a data-tab="plans" role="tab" tabindex="0" aria-selected="false">Plans<span class="badge">{len(pl)}</span></a>
 <a data-tab="how" role="tab" tabindex="0" aria-selected="false">How it works</a>
 <a data-tab="setup" role="tab" tabindex="0" aria-selected="false">Setup</a>
 </nav>
 
+<dialog id="reader" class="reader" aria-labelledby="reader-title">
+<div class="reader-head"><div><h2 id="reader-title" class="reader-title">File</h2>
+<p id="reader-path" class="reader-path mono"></p></div>
+<button class="reader-close" onclick="closereader()">close</button></div>
+<div class="reader-actions"><a id="reader-vscode" href="">open in VS Code</a>
+<a id="reader-folder" href="" target="_blank">open folder</a>
+<button id="reader-copy-file" class="location" onclick="cp(this)">copy file path</button>
+<button id="reader-copy-folder" class="location" onclick="cp(this)">copy folder path</button></div>
+<article id="reader-body" class="reader-body"></article>
+</dialog>
+<script id="preview-data" type="application/json">{previews_json}</script>
+
 <section id="overview" class="on">
 <div class="tiles">{tiles_html}</div>
 {usage_html}
-<h2>Plugins ({len(plugins)})</h2>
-<div class="chips">{plugins_html}</div>
+{resume_html}
 <h2>Hooks ({n_hooks})</h2>
 <details class="fold"><summary>Per-plugin breakdown — skillboard runs {n_hooks_sb} of {n_hooks}</summary>
 <table class="half">{hooks_rows_html}</table></details>
-<p class="note">Regenerates automatically each session start · manual: <span class="mono">skillboard</span></p>
+<p class="note">Regenerates automatically each session start · manual: <span class="mono">{DASH_COMMAND}</span></p>
 </section>
 
 <section id="memory">
 <div class="grid2"><div>
-<table><tr><td>Personal memory files</td><td class="num">{corpus}</td>
-<td class="dim">auto-memory + brain</td></tr>{src_rows}</table>
-<p class="note">FTS index (phase 1) is built and live. A semantic lane stays deferred until vague-phrasing recall actually fails — volume alone is not the trigger.</p>
-<p class="note">Index is disposable — files are the only truth. Refresh: <span class="mono">python3 ~/.claude/scripts/memory-index.py</span></p>
+<table><tr><td>Personal memories</td><td class="num">{corpus}</td>
+<td class="dim">auto-memory + brain</td></tr><tr><td colspan="3" class="dim">All indexed sources ({mem_total})</td></tr>{src_rows}</table>
+<p class="note">Files are the source of truth; the index refreshes each session.</p>
 </div><div>
 <table><tr><td>Weekly maintenance</td><td colspan="2">{maint}</td></tr>
 <tr><td class="dim" colspan="3">{esc(maint_sub)}</td></tr>{brain_rows}</table>
@@ -685,8 +928,9 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 </div></div>
 <h2>Stored memories ({mem_total})</h2>
 <select id="memsel" class="filter" onchange="memflt()" aria-label="Filter memories by origin">{mem_opts}</select>
-<div class="wrap"><table id="memtab">{mem_rows}</table></div>
-<p class="note">Filter by origin. <span class="mono">auto-memory</span> is keyed by the working dir when written (<span class="mono">global</span> = ~/development); <span class="mono">repo</span> = handoff/.doc/gotchas; <span class="mono">brain</span> = remember plugin. Click a title to open in VS Code — delete it there to remove (index rebuilds next session). <span class="mono">MEMORY.md</span> is an index, not a memory — leave it.</p>
+<p id="memcount" class="result" aria-live="polite"></p>
+<div class="wrap"><table id="memtab" class="data"><thead><tr><th>Memory</th><th>Source</th><th>Origin</th><th>Location</th></tr></thead><tbody>{mem_rows}</tbody></table></div>
+<p class="note">Filter by origin. <span class="mono">auto-memory</span> is keyed by the working dir when written (<span class="mono">global</span> = ~/development); <span class="mono">repo</span> = handoff/.doc/gotchas; <span class="mono">brain</span> = remember plugin. Use location to copy the folder path before deleting a file. <span class="mono">MEMORY.md</span> is an index, not a memory — leave it.</p>
 </section>
 
 <section id="skills">
@@ -694,24 +938,13 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 <h2>Plugin skills ({len(plug_sk)})</h2>
 <div class="cards">{plug_cards}</div>
 <h2>Local skills ({len(loc_sk)})</h2>
-<input class="filter" placeholder="filter skills…" oninput="flt(this,'sktab')" aria-label="Filter local skills">
-<div class="wrap"><table id="sktab">{skills_rows}</table></div>
-<p class="note">&#10003; installed = plugin enabled + skill in cache v{esc(sb_ver)}, registered as <span class="mono">skillboard:&lt;name&gt;</span> · after install/update run <span class="mono">/reload-plugins</span>. Local skills live only on this machine — click a name to open in VS Code.</p>
+<input class="filter" placeholder="filter local skills…" oninput="flt(this,'sktab','skcount')" aria-label="Filter local skills">
+<p id="skcount" class="result" aria-live="polite"></p>
+<div class="wrap"><table id="sktab" class="data"><thead><tr><th>Skill</th><th>Description</th><th>Location</th></tr></thead><tbody>{skills_rows}</tbody></table></div>
+<p class="note">&#10003; installed = plugin enabled + skill in cache v{esc(sb_ver)}, registered as <span class="mono">skillboard:&lt;name&gt;</span> · after install/update run <span class="mono">/reload-plugins</span>. Click a skill to read it here; use location to find the file later.</p>
 </section>
 
 <section id="how">
-<h2>Why this plugin exists</h2>
-<div class="cards">
-<div class="card"><div class="card-head"><span class="card-name">Never lose work</span></div>
-<p class="dim card-desc full">Plans persist in each repo's <span class="mono">.doc/</span> + <span class="mono">handoff.md</span>. Compaction hooks preserve plan state; every session start points the agent back at unfinished work.</p></div>
-<div class="card"><div class="card-head"><span class="card-name">Instant recall</span></div>
-<p class="dim card-desc full">One FTS index over all {mem_total} memory files (auto-memory, brain, repo gotchas, plans). "What did we decide about X?" answered in 2 tool calls instead of a grep hunt.</p></div>
-<div class="card"><div class="card-head"><span class="card-name">Runs itself</span></div>
-<p class="dim card-desc full">Index + this dashboard regenerate automatically each session start — async, fail-open, zero commands. Weekly memory maintenance nags only when overdue.</p></div>
-<div class="card"><div class="card-head"><span class="card-name">Portable + weak-model safe</span></div>
-<p class="dim card-desc full">One private repo installs the whole setup on any machine (3 commands, see Setup). Skill descriptions are collision-free so even smaller models route correctly.</p></div>
-</div>
-
 <h2>Every session start — automatic, no commands</h2>
 <table>
 <tr><td class="mono">~/.claude/memory-index.db</td><td class="dim">memory index refreshed from all homes (files stay the only truth — index is disposable)</td></tr>
@@ -755,35 +988,71 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 </section>
 
 <section id="plans">
-<input class="filter" placeholder="filter plans…" oninput="flt(this,'pltab')" aria-label="Filter plans">
-<div class="wrap"><table id="pltab">{plan_rows}</table></div>
-<p class="note">Newest first — every <span class="mono">.doc/</span> and <span class="mono">doc/plans/</span> folder found under <span class="mono">{esc(DEV)}</span>. Click to open.</p>
+<input class="filter" placeholder="filter plans by name, repo, or status…" oninput="planflt(this)" aria-label="Filter plans by name, repository, or status">
+<p id="plcount" class="result" aria-live="polite"></p>
+<div class="wrap"><table id="pltab" class="data"><thead><tr><th>Plan</th><th>Repository</th><th>Status</th><th>Location</th></tr></thead><tbody>{plan_rows}</tbody></table></div>
+<p class="note">{len(pl)} plans, newest first — every <span class="mono">.doc/</span> and <span class="mono">doc/plans/</span> folder found under <span class="mono">{esc(DEV)}</span>. Click a plan to read it here.</p>
 </section>
 
 <script>
-function t(){{const r=document.documentElement,c=r.dataset.theme||
-(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'),n=c==='dark'?'light':'dark';
-r.dataset.theme=n;try{{localStorage.setItem('sb-theme',n)}}catch(e){{}}}}
-function cp(b){{navigator.clipboard.writeText(b.dataset.link).then(()=>{{
-const o=b.textContent;b.textContent='copied!';setTimeout(()=>b.textContent=o,1200)}})}}
-function flt(inp,id){{const q=inp.value.toLowerCase();
-for(const tr of document.getElementById(id).rows)
-tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none'}}
+function currentTheme(){{return document.documentElement.dataset.theme||
+(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}}
+function syncThemeButton(){{const b=document.getElementById('th'),dark=currentTheme()==='dark';
+b.textContent=dark?'dark':'light';b.setAttribute('aria-pressed',String(dark));
+b.setAttribute('aria-label',dark?'Switch to light theme':'Switch to dark theme');
+b.title=b.getAttribute('aria-label')}}
+function t(){{const r=document.documentElement,n=currentTheme()==='dark'?'light':'dark';
+r.dataset.theme=n;try{{localStorage.setItem('sb-theme',n)}}catch(e){{}}syncThemeButton()}}
+function cp(b){{const o=b.textContent,show=x=>{{b.textContent=x;setTimeout(()=>b.textContent=o,1400)}};
+if(!navigator.clipboard||!navigator.clipboard.writeText){{show('copy unavailable');return}}
+navigator.clipboard.writeText(b.dataset.link).then(()=>show('copied!'),()=>show('copy unavailable'))}}
+const previews=JSON.parse(document.getElementById('preview-data').textContent);
+function filehref(path){{return 'file://'+encodeURI(path)}}
+function showreader(path,preview){{const d=document.getElementById('reader'),folder=preview?preview.folder:path.slice(0,path.lastIndexOf('/'));
+document.getElementById('reader-title').textContent=path.split('/').pop()||path;
+document.getElementById('reader-path').textContent=path;
+document.getElementById('reader-vscode').href='vscode://file'+encodeURI(path);
+document.getElementById('reader-folder').href=filehref(folder+'/');
+document.getElementById('reader-copy-file').dataset.link=path;
+document.getElementById('reader-copy-folder').dataset.link=folder;
+document.getElementById('reader-body').innerHTML=preview?
+preview.html+(preview.truncated?'<p class="reader-truncated">Preview capped at 6,000 characters. Open in VS Code for the full file.</p>':''):
+'<p>Preview is not embedded for this indexed file. Use the location actions above to find it.</p>';
+if(d.showModal)d.showModal();else d.setAttribute('open','')}}
+function readfile(path){{showreader(path,previews[path])}}
+function showlocation(path){{showreader(path,null)}}
+function closereader(){{const d=document.getElementById('reader');if(d.close)d.close();else d.removeAttribute('open')}}
+function filterRows(id,match,resultId){{const rows=[...document.querySelectorAll('#'+id+' tbody tr')];let shown=0;
+for(const tr of rows){{const yes=match(tr);tr.style.display=yes?'':'none';if(yes)shown++}}
+const result=document.getElementById(resultId);if(result)result.textContent=`Showing ${{shown}} of ${{rows.length}}`}}
+function flt(inp,id,resultId){{const q=inp.value.toLowerCase();
+filterRows(id,tr=>tr.textContent.toLowerCase().includes(q),resultId)}}
+function planflt(inp){{const q=inp.value.toLowerCase(),groups=new Set();let shown=0;
+for(const tr of document.querySelectorAll('#pltab tr[data-plan-row]')){{const yes=tr.textContent.toLowerCase().includes(q);
+tr.style.display=yes?'':'none';if(yes){{shown++;groups.add(tr.dataset.planRow)}}}}
+for(const tr of document.querySelectorAll('#pltab tr[data-plan-group]'))tr.style.display=groups.has(tr.dataset.planGroup)?'':'none';
+document.getElementById('plcount').textContent=`Showing ${{shown}} of {len(pl)}`}}
+function memjump(o){{const s=document.getElementById('memsel');if(!s)return;
+if(![...s.options].some(x=>x.value===o))return;
+s.value=o;memflt();
+const sm=matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
+document.getElementById('memtab').scrollIntoView({{behavior:sm,block:'center'}})}}
 function memflt(){{const s=document.getElementById('memsel');if(!s)return;
-for(const tr of document.getElementById('memtab').rows)
-tr.style.display=(s.value==='all'||tr.dataset.o===s.value)?'':'none'}}
+filterRows('memtab',tr=>s.value==='all'||tr.dataset.o===s.value,'memcount')}}
 function go(a){{document.querySelectorAll('nav a,section').forEach(x=>x.classList.remove('on'));
 document.querySelectorAll('nav a').forEach(x=>x.setAttribute('aria-selected',x===a));
 a.classList.add('on');document.getElementById(a.dataset.tab).classList.add('on');
 location.hash=a.dataset.tab}}
+function tabgo(id){{const a=document.querySelector('nav a[data-tab='+id+']');if(a)go(a)}}
 document.querySelectorAll('nav a').forEach(a=>{{a.onclick=()=>go(a);
 a.onkeydown=e=>{{if(e.key==='Enter'||e.key===' '){{e.preventDefault();go(a)}}}}}});
 const h=location.hash.slice(1),ha=h&&document.querySelector(`nav a[data-tab=${{h}}]`);
 if(ha&&document.getElementById(h))go(ha);
 const ageH=(Date.now()/1000-+document.body.dataset.gen)/3600;
 if(ageH>24){{const e=document.getElementById('age');
-e.classList.add('stale');e.textContent+=` · STALE ${{ageH.toFixed(0)}}h — run: dash`}}
-memflt();
+e.classList.add('stale');e.textContent+=` · STALE ${{ageH.toFixed(0)}}h — run: {DASH_COMMAND}`}}
+syncThemeButton();memflt();flt(document.querySelector('#sktab').closest('section').querySelector('input.filter'),'sktab','skcount');
+planflt(document.querySelector('#pltab').closest('section').querySelector('input.filter'));
 </script></body></html>"""
     with open(OUT, "w", encoding="utf-8") as f:
         f.write(page)

@@ -213,19 +213,86 @@ erDiagram
 ```
 
 ### Choosing the diagram layout (scale matters)
-One giant diagram with every column is unreadable past a dozen tables. Pick the
-layout from the schema size — this is what keeps the doc readable on a large DB:
 
-- **Small (≲ 12 domain tables):** a single `erDiagram` with attribute blocks, as
-  above.
-- **Large / many tables:** lead with an **overview diagram** — entities and
-  relationship lines only, *no* attribute blocks — so the whole map fits on one
-  screen. Then split tables into domains using the grouping signals in Step 3
-  ("Group domain tables into modules") and give each domain its own **detailed
-  `erDiagram`** (with attributes) placed next to that domain's table
-  descriptions. Aim for ≲ 10 entities per detailed diagram.
+**The hard rule: an `erDiagram` with attribute blocks gets at most 4 entities,
+and at most 3 of them hanging off the same parent.** Count before you write the
+fence.
+
+That number is not a guess. Mermaid renders a diagram at its natural width, then
+the page scales it down to fit — so legibility is a function of **rendered
+width**, not entity count. Measured on a 1100px-wide page:
+
+| Diagram | Entities | Natural width | Rendered scale |
+|---|---|---|---|
+| All-entities overview, **no** attributes | 21 | 3462px | **32%** — unreadable |
+| One domain, with attributes | 6 | 2946px | **37%** — unreadable |
+| Domain map (`flowchart`, table names only) | 6 nodes | 1780px | 62% — fine |
+| One domain, with attributes | 4 | 1323px | **83%** — crisp |
+
+Two things follow, and both are counter-intuitive enough to be worth stating:
+
+1. **Dropping attribute blocks does not rescue a big diagram.** The 21-entity
+   overview had no attributes at all and still rendered at 32%, because bare
+   entities lay out in a wider, flatter tree. Fewer boxes is the only fix.
+2. **Six entities is already too many** once attributes are on. Width is driven
+   by how many boxes sit side-by-side at the widest rank — a hub with five
+   children puts five attribute tables in one row. Keep siblings ≤ 3.
+
+Pick the layout from the schema size:
+
+- **Small (≲ 4 domain tables):** one `erDiagram` with attribute blocks. That
+  single diagram is the whole picture; no overview needed.
+
+- **Larger (> 4 domain tables):** do **not** draw an all-entities diagram at any
+  level of detail. Instead:
+  1. Open with a **domain map** — a `flowchart`, not an `erDiagram` — with one
+     node per domain group from Step 3, each node listing its table names, and
+     edges only where a *cross-domain* FK exists. Keep it to ≲ 8 nodes; if there
+     are more domains than that, the grouping is too fine — merge.
+  2. Give each domain its own **detailed `erDiagram`** (with attributes) under
+     that domain's heading, ≤ 4 entities each. This is where every entity and
+     column actually appears.
+  3. A domain with more than 4 tables gets **two or more diagrams**, split by
+     what the tables do. Repeat the hub entity in each as a **stub** — just
+     `bigint id PK` and a note pointing at the diagram that carries its columns —
+     so the relationships still read without paying the width twice.
+
+  The domain map answers "how is this system organized"; the per-domain diagrams
+  answer "what is in this table". An all-entities diagram answers neither well,
+  which is why it is banned rather than merely discouraged.
+
+  Domain map shape:
+
+  ```
+  flowchart LR
+      CORE["<b>Core — Tenancy & Access</b><br/>tenants · users · user_tenants · access_tokens"]
+      CONFIG["<b>Agent Configuration</b><br/>agents · specialists · tools · workflows"]
+      CONV["<b>Conversations</b><br/>contacts · conversations · conversation_turns"]
+
+      CORE -->|tenant_id, agent_id| CONFIG
+      CONFIG -->|agent_id| CONV
+      CORE -->|contact scoping| CONV
+  ```
+
 - Keep framework / plumbing tables out of the diagrams unless a domain table
   directly references one. A diagram nobody can read helps nobody.
+
+**Sanity check before moving on:** for each fence, count the entity blocks
+(`erDiagram`, cap 4) or nodes (`flowchart`, cap 8), and the siblings under any
+one parent (cap 3). Over the cap means split or regroup — not shrink the labels,
+and not drop the attributes.
+
+If you can render the page, measure instead of counting: natural SVG width
+≤ ~1800px keeps it at ≥60% on a normal page.
+
+```js
+// in a browser with the diagrams rendered
+Array.from(document.querySelectorAll('svg')).map(s => ({
+  natural: parseFloat((s.getAttribute('viewBox')||'').split(/\s+/)[2]),
+  pct: Math.round(s.getBoundingClientRect().width /
+       parseFloat((s.getAttribute('viewBox')||'').split(/\s+/)[2]) * 100),
+}));
+```
 
 ---
 
@@ -246,15 +313,18 @@ entity everything hangs off (often `users`), and the one or two patterns a
 reader truly needs up front (per-user ownership, cascade deletes, etc.). Keep
 it tight — no filler.>
 
-## Entity-Relationship Diagram
+## <Entity-Relationship Diagram | Domain Map>
 
-<Small schema: one erDiagram with attributes. Large schema: an overview diagram
-here (entities + relationships only, no attributes), then a detailed diagram per
-domain placed under that domain's tables below — see "Choosing the diagram
-layout".>
+<Small schema (≲ 4 domain tables): heading is "Entity-Relationship Diagram" and
+one `erDiagram` with attributes goes here — that is the whole picture.
+
+Large schema (> 4 domain tables): heading is "Domain Map" and a `flowchart` of
+domain groups goes here — NOT an all-entities erDiagram, which renders
+illegibly. The per-domain `erDiagram`s live under each domain's heading in
+## Tables below. See "Choosing the diagram layout".>
 
 ```mermaid
-erDiagram
+flowchart LR
     ...
 ```
 
@@ -270,7 +340,8 @@ small tables stay one or two lines.
 
 ### <Domain group>
 
-<For a large schema, place this domain's detailed `erDiagram` here.>
+<For a large schema, place this domain's detailed `erDiagram` here — ≤ 4
+entities, with attribute blocks. This is where the columns actually live.>
 
 #### <table_name> — <one-line purpose>
 
@@ -327,8 +398,13 @@ Before declaring done, verify:
 - [ ] Every relationship is described from both ends and matches the model code.
 - [ ] Tables are grouped by business domain (core-first), not alphabetically;
       no group is so big it stops being a "domain".
-- [ ] Large schemas use an overview diagram + per-domain detailed diagrams, not
-      one unreadable mega-diagram; each diagram stays legible (≲ 10 entities).
+- [ ] **Count the entities in every attributed `erDiagram` — none exceeds 4, and
+      no parent has more than 3 children.** This is the check most often skipped,
+      and skipping it is what produces a doc whose diagrams are decoration. An
+      all-entities overview is never acceptable past 4 tables — it must be a
+      domain-map `flowchart` instead, and dropping the attribute blocks does not
+      make a big diagram legible (measured: 21 bare entities still rendered at
+      32%).
 - [ ] The Mermaid block is syntactically valid (entity names referenced in
       relationships are also defined as entity blocks; cardinality symbols are
       from the table above).

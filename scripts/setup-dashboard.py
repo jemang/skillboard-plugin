@@ -734,7 +734,7 @@ def main():
 
     checklist = """<ol class="steps">
 <li>git auth for the private repo (SSH key, HTTPS creds, or <span class="mono">gh auth login</span> — any one)</li>
-<li>In Claude Code: <span class="mono">/plugin marketplace add git@github.com:jemang/skillboard-plugin.git</span></li>
+<li>In Claude Code: <span class="mono">/plugin marketplace add https://github.com/jemang/skillboard-plugin.git</span></li>
 <li><span class="mono">/plugin install skillboard@skillboard</span></li>
 <li><span class="mono">/skillboard-init</span> — deps, config, shims, settings, CLAUDE.md</li>
 <li>Add alias: <span class="mono">alias skillboard='python3 ~/.claude/scripts/setup-dashboard.py --open'</span></li>

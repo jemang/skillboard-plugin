@@ -26,12 +26,12 @@ Portable agent setup — skills, hooks, memory index, and the Skillboard dashboa
 
 ## Install (new machine)
 
-Private repo — any working git auth is enough (SSH key already set up, or HTTPS credentials, or `gh auth login`). No `gh` dependency.
+Public repo — no auth needed (HTTPS), or use SSH if you have a key set up.
 
 In Claude Code:
 
 ```
-/plugin marketplace add git@github.com:jemang/skillboard-plugin.git
+/plugin marketplace add https://github.com/jemang/skillboard-plugin.git
 /plugin install skillboard@skillboard
 /skillboard-init
 ```

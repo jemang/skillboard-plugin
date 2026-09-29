@@ -5,7 +5,13 @@ description: "Use when the installed skill set should be audited against what's 
 
 # Skill Evolve — audit and refresh the installed skill set
 
-Orchestrator workflow: small-model research agents gather facts, YOU verify and decide. Run periodically — the SessionStart nag fires when a tech-pinned skill passes 90 days since its research stamp.
+Orchestrator workflow: small-model research agents gather facts, YOU verify and decide. Run the cheap usage pass (step 0) quarterly; run the full research lanes only when that pass surfaces a low/never-used candidate, a tech-pinned skill passes 90 days since its research stamp, or a material platform change occurred. The SessionStart nag fires on both stale stamps and an overdue audit (>90 days since the last one).
+
+## 0. Usage baseline — cheap, local, run BEFORE any research
+
+Run the plugin's usage scanner (newest plugin cache, or the repo checkout): `python3 <skillboard>/scripts/skill_usage.py` — on each machine you can reach (ssh + run remotely for the others). It reads only that machine's `~/.claude/projects/*/*.jsonl` (Skill calls + typed slash commands, plugin prefixes stripped; Codex sessions are NOT counted), so note which hosts you covered. Join `usage` entries to the inventory by skill basename; absent = never used.
+
+Classify before researching: healthy/recent use → keep, no trends lane needed; zero/low use or last use >2 quarters ago → inspect prompt + overlap (candidate for step 4/6); tech-pinned → version-verify lane. Low use is evidence for review, never automatic deletion — some skills are knowledge/discipline skills applied without invocation.
 
 ## 1. Inventory
 
@@ -16,7 +22,7 @@ Scan every skill home: plugin skills (newest plugin cache `skills/` dir), `~/.cl
 Dispatch cheap research agents in parallel (Claude Code: Agent tool, `general-purpose`, a small model like haiku; Codex or no Agent tool: run the same lanes yourself inline with web search). Facts only — no recommendations; judgment stays with the orchestrator. Three lanes:
 
 - **Trends** — rising/declining tech per current surveys (Stack Overflow, State of JS, Thoughtworks Radar) and agent-framework/protocol shifts.
-- **Ecosystem** — trending Claude/Codex skills and collections on GitHub; new platform capabilities (skills spec, hooks, subagents) since the last audit.
+- **Ecosystem** — trending Claude/Codex skills and collections on GitHub; new platform capabilities (skills spec, hooks, subagents) since the last audit. Known-good starting sources from past audits (verify still live): `github.com/linny006/trending-claude-skills`, `agentskills.io`.
 - **Version verify** — for EVERY pinned tech: current stable version, last release date, deprecations/renames/successors (npm / PyPI / GitHub releases).
 - **Habits** — mine the user's OWN conversation history for recurring workflows and corrections. Prefer distilled sources first (memory/evidence logs, Codex `~/.codex/rollout_summaries/`, `~/.codex/memories/`), else sample recent local transcripts (`~/.claude/projects/<project>/*.jsonl`). Local analysis only — transcript content never leaves the machine; the lane reports patterns ("user always X after Y", "user corrected Z three times"), never verbatim content.
 
@@ -48,7 +54,7 @@ Never delete a skill on your own verdict. Present flagged skills with evidence (
 
 ## 7. Record + refresh
 
-Write or update a plan doc in the repo's `.doc/` (`YYYY-MM-DD-NN-<topic>-plan.md`) with research summary, verdict table, and tasks. Rerun the dashboard (`skillboard` alias) so freshness badges pick up new stamps. Report per file: changed, skipped (why), awaiting confirmation.
+Write or update a plan doc in the repo's `.doc/` (`YYYY-MM-DD-NN-<topic>-plan.md`) with research summary, verdict table, and tasks. Mark the audit done so the overdue nag resets: `touch ~/.claude/skillboard-audit-stamp` (the dashboard reads its mtime). Rerun the dashboard (`skillboard` alias) so freshness badges and usage pills pick up new stamps. Report per file: changed, skipped (why), awaiting confirmation.
 
 ## Common mistakes
 

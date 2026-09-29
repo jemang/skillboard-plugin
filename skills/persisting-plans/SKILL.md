@@ -46,8 +46,9 @@ Name: `.doc/YYYY-MM-DD-NN-<short-kebab-topic>-<type>.md` — creation date + 2-d
 
 - Tick checkboxes and update **Status** / **Current position** as steps complete — a stale plan misleads the next agent worse than no plan.
 - On resume: read existing `.doc/*.md` plans FIRST before re-planning.
-- Mark abandoned plans `Status: done` or delete them; don't leave zombies.
-- Plans reference files by path; don't paste diffs or file contents.
+- Mark abandoned plans `Status: done` with a one-line why, and keep the file — the decision history is worth more than the tidiness; don't delete plans as routine hygiene.
+- Plans reference files by repo-relative path; don't paste diffs or file contents.
+- **Project content only — plans are shared.** `.doc/` is committed, and other people (and their agents, on their machines) build this repo too. Keep out anything machine-local or person-specific: absolute home paths, machine hostnames, personal aliases/tool setup, one person's local env quirks. If a step depends on such a detail, describe it project-relatively ("the app's `.env`", "wherever the repo is cloned") — the personal detail itself belongs in that person's own memory homes, never in the plan.
 
 ## Red flags
 

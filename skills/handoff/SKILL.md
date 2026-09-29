@@ -79,7 +79,7 @@ Use this template. Drop sections that genuinely don't apply rather than padding 
 ```markdown
 # Handoff: <short title of the work>
 
-**Created:** <ISO timestamp>  ·  **Last updated:** <ISO timestamp>  ·  **By:** Claude (<model>)  ·  **Repo/branch:** <if applicable>
+**Created:** <ISO timestamp>  ·  **Last updated:** <ISO timestamp>  ·  **By:** <agent/model, e.g. Claude (opus) or Codex>  ·  **Repo/branch:** <if applicable>
 **Next session focus:** <from arguments, or "general — resume where left off">
 
 ## TL;DR

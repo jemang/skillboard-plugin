@@ -140,6 +140,26 @@ def skills():
     return plug, _scan_skills(os.path.join(H, ".claude", "skills"))
 
 
+def skill_usage_counts():
+    """{basename: {n, last, sessions}} from local session logs via skill_usage.py."""
+    import importlib.util
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "skill_usage.py")
+    spec = importlib.util.spec_from_file_location("skill_usage", p)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.collect()
+
+
+def use_badge(name, sk_use):
+    if not sk_use:
+        return ""
+    e = sk_use.get(name)
+    if not e:
+        return ('<span class="pill" style="color:var(--warn);border-color:var(--warn)">'
+                'never used</span>')
+    return f'<span class="pill">used {e["n"]}&times; · last {e["last"]}</span>'
+
+
 def settings():
     with open(os.path.join(H, ".claude", "settings.json"), encoding="utf-8") as f:
         return json.load(f)
@@ -499,14 +519,20 @@ def main():
     corpus = by.get("auto-memory", 0) + by.get("brain", 0)
     plug_sk, loc_sk = safe(skills, ([], []))
     sk = plug_sk + loc_sk
+    sk_use = safe(skill_usage_counts, {})
     stale_skills = [t[0] for t in sk if t[3] and (skill_age_days(t[3]) or 0) > 90]
 
     # stale-skill state file for the SessionStart freshness nag (names only)
     def _write_stale():
         f = os.path.join(H, ".claude", "skillboard-stale.txt")
-        if stale_skills:
+        marks = list(stale_skills)
+        stamp = os.path.join(H, ".claude", "skillboard-audit-stamp")
+        audit_age = safe(lambda: (time.time() - os.path.getmtime(stamp)) / 86400, None)
+        if audit_age is None or audit_age > 90:
+            marks.append("skill-audit-overdue(>90d)")
+        if marks:
             with open(f, "w", encoding="utf-8") as fh:
-                fh.write("\n".join(stale_skills) + "\n")
+                fh.write("\n".join(marks) + "\n")
         elif os.path.exists(f):
             os.remove(f)
     safe(_write_stale, None)
@@ -644,6 +670,7 @@ def main():
         href = link if REPO else f"vscode://file{p}"
         return (f'<div class="card"><div class="card-head">'
                 f'<span class="mono card-name">{esc(n)}</span> {inst_badge} {age_badge(stamp)}'
+                f' {use_badge(n, sk_use)}'
                 f'{reader_link(p, "read")}'
                 f'<a class="source" href="{esc(href)}">open source</a>'
                 f'<button class="copy" data-link="{esc(link)}" onclick="cp(this)">copy link</button></div>'
@@ -652,7 +679,8 @@ def main():
 
     plug_cards = "".join(card(*t) for t in plug_sk)
     skills_rows = "".join(
-        f'<tr><td>{reader_link(p, n)}</td><td class="dim">{esc(d)} {age_badge(stamp)}</td>'
+        f'<tr><td>{reader_link(p, n)}</td>'
+        f'<td class="dim">{esc(d)} {age_badge(stamp)} {use_badge(n, sk_use)}</td>'
         f'<td>{location_button(p)}</td></tr>'
         for n, d, p, stamp in loc_sk)
 
@@ -936,6 +964,7 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 <section id="skills">
 {plug_status}
 <h2>Plugin skills ({len(plug_sk)})</h2>
+<p class="note">usage pills: this machine's session logs (Skill calls + slash commands, plugin prefix stripped); "never used" = no invocation in retained history</p>
 <div class="cards">{plug_cards}</div>
 <h2>Local skills ({len(loc_sk)})</h2>
 <input class="filter" placeholder="filter local skills…" oninput="flt(this,'sktab','skcount')" aria-label="Filter local skills">
@@ -1053,12 +1082,13 @@ e.classList.add('stale');e.textContent+=` · STALE ${{ageH.toFixed(0)}}h — run
 syncThemeButton();memflt();flt(document.querySelector('#sktab').closest('section').querySelector('input.filter'),'sktab','skcount');
 planflt(document.querySelector('#pltab').closest('section').querySelector('input.filter'));
 </script></body></html>"""
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
         f.write(page)
     print(OUT)
     if "--open" in sys.argv:
-        import subprocess
-        subprocess.run(["open", OUT], check=False)
+        import webbrowser
+        webbrowser.open("file://" + OUT)
 
 
 if __name__ == "__main__":

@@ -12,7 +12,8 @@ Portable agent setup. On Codex this ships **skills + these instructions**, and C
 | "What did we decide about X?" | `skills/memory-recall/` — search the memory index before re-deriving |
 | Choosing between viable tech/product routes | `skills/decision-routes/` |
 | Writing onboarding / dev documentation | `skills/dev-docs/` |
-| A multi-step workflow repeats and should be frozen | `skills/self-learning/` |
+| Documenting the database / ER diagram / schema doc | `skills/database-design-doc/` — `database-design.md` with Mermaid ER diagram |
+| A version-sensitive technology keeps recurring and deserves a pinned reusable skill (`/learn <topic>`) | `skills/self-learning/` — NOT for one-off library questions |
 | Skills possibly outdated / trending-skill check / periodic skill audit | `skills/skill-evolve/` — research inline with web search here (no Agent tool on Codex) |
 | Bootstrapping a fresh machine | `skills/skillboard-init/` |
 

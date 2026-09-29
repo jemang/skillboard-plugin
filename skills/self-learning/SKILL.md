@@ -1,6 +1,6 @@
 ---
 name: self-learning
-description: "Autonomous skill generator that learns new technologies from the web. Use when users want to learn about a new library/framework/tool, need to create a skill for an unfamiliar technology, want to research and document a technology's usage patterns, or invoke with `/learn <topic>`. NOT for auditing or refreshing the EXISTING skill set against trends/staleness — that is skill-evolve."
+description: "Turn a technology that will RECUR across sessions into a reusable, version-stamped skill by researching it from the web. Use when the user explicitly asks to preserve a technology as a skill (`/learn <topic>`, 'make a skill for X'), or when a version-sensitive library keeps coming back session after session and repeated doc lookups show it deserves a pinned local skill. NOT for one-off questions about a library — answer those directly with context7/web search, no skill artifact. NOT for auditing or refreshing the EXISTING skill set against trends/staleness — that is skill-evolve."
 ---
 
 # Self-Learning Skill Generator

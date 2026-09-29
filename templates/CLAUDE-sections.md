@@ -6,6 +6,7 @@ When editing existing code, every changed line must trace directly to the curren
 - Unrelated dead code or improvement opportunities: mention them, never act unasked.
 - Orphans YOUR change created (now-unused imports/vars/functions): remove them.
 - If multiple interpretations of the request exist, state them before picking; if a simpler approach exists, say so.
+- Comment-slop tells — decorative separators/banners, step-by-step narration, empty labels ("main logic"), signature-echo docblocks, end markers (`// end if`), vague TODOs, decorative emoji: remove on sight in code YOU write or touch; keep only comments carrying a constraint, edge case, or why. Never modify executable code while cleaning comments.
 
 ## Task Completion Report Format
 

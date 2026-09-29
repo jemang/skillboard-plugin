@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Disposable FTS5 index over Jemang's file-based memory. Files are the ONLY
+"""Disposable FTS5 index over the user's file-based memory. Files are the ONLY
 source of truth; deleting the DB loses nothing (next run rebuilds).
-One-way sync file -> DB. Stdlib only. See ~/development/.doc/plan-sqlite-memory-index.md
+One-way sync file -> DB. Stdlib only.
 """
 import argparse
 import glob
@@ -72,6 +72,7 @@ def title_of(path, body):
 
 
 def connect():
+    os.makedirs(os.path.dirname(DB), exist_ok=True)
     con = sqlite3.connect(DB)
     con.executescript("""
         CREATE TABLE IF NOT EXISTS mem(

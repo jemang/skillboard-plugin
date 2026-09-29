@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+/tests
+.doc
+handoff.md

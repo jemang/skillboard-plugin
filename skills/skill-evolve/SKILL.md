@@ -13,6 +13,8 @@ Run the plugin's usage scanner (newest plugin cache, or the repo checkout): `pyt
 
 Classify before researching: healthy/recent use → keep, no trends lane needed; zero/low use or last use >2 quarters ago → inspect prompt + overlap (candidate for step 4/6); tech-pinned → version-verify lane. Low use is evidence for review, never automatic deletion — some skills are knowledge/discipline skills applied without invocation.
 
+Also read `~/.claude/memory-recall-misses.log` (failed memory searches, one `timestamp\tquery` line each). 2+ genuine misses of the same kind unlock building the matching deferred index improvement — bad ranking → bm25 column weighting; partial-word queries → last-term prefix matching; vague/synonym phrasings whose note existed → semantic lane (sqlite-vec + embeddings, needs non-system python). Junk/test queries don't count, and one-off misses stay logged, not built for.
+
 ## 1. Inventory
 
 Scan every skill home: plugin skills (newest plugin cache `skills/` dir), `~/.claude/skills/`, `<repo>/.claude/skills/`, on Codex also `~/.codex/skills/`. For each collect: description, `Researched YYYY-MM-DD` / `re-verified` stamp, pinned versions and curated library lists. Split evergreen workflow skills (no pins — rarely stale) from tech-pinned skills (versions, curated lists — the staleness surface).

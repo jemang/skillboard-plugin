@@ -18,7 +18,7 @@ Required: `python3` (3.9+), `jq`. Optional (features degrade silently without th
 
 ### 2. Config file `~/.claude/skillboard.json`
 
-If missing, ask the user for values then write (defaults shown):
+If missing, **detect first, then confirm** — propose detected values in one question instead of asking cold (never write silently; the user can override any of them). Defaults shown:
 
 ```json
 { "dev_root": "~/development", "brain_dir": "~/remember", "codex_dir": "~/.codex", "repo": "" }
@@ -32,10 +32,11 @@ python3 -c 'import json,os;t=json.load(open("'"$ROOT"'/templates/skillboard.conf
 
 All keys present → report `already configured`. Otherwise list each missing key with its default and what it controls, say whether the code already falls back to that same value (most do — then it is cosmetic, not a break), and offer to add them. Never change a key the user already set.
 
-- `dev_root`: where their repos live (continuity + plan scanning).
-- `brain_dir`: remember-plugin brain path, `""` if they don't use it.
-- `codex_dir`: Codex CLI home (its native memories get indexed too), `""` if no Codex.
-- `repo`: `owner/repo` GitHub path (e.g. `jemang/skillboard-plugin`) — powers dashboard copy-link cards; `""` disables the links.
+- `dev_root`: where their repos live (continuity + plan scanning). Detect: among `~/development ~/dev ~/code ~/Projects ~/src ~/repos`, propose the existing dir containing the most `*/.git` entries; none found → ask.
+- `brain_dir`: remember-plugin brain path, `""` if they don't use it. Detect: remember plugin in `claude plugin list` or `~/remember/` exists → propose `~/remember`; else `~/.claude-mem/memory/` exists → propose that (claude-mem markdown logs); neither → propose `""`.
+- `codex_dir`: Codex CLI home (its native memories get indexed too), `""` if no Codex. Detect: `~/.codex/` exists or a codex binary resolves → propose `~/.codex`; else `""`.
+- `repo`: `owner/repo` GitHub path — powers dashboard copy-link cards; `""` disables the links. Detect: parse the skillboard marketplace's git remote (`claude plugin marketplace list`, or `git -C <marketplace source> remote get-url origin` when it is a local clone) into `owner/repo`; unparseable → `""`.
+- `external_memory`: free-text naming an external memory store this setup has, used by memory-recall's no-match fallback and the search hint; `""` = none. **Detect before asking:** `~/.claude-mem/` exists → propose "claude-mem MCP — search / get_observations" (and offer pointing `brain_dir` at `~/.claude-mem/memory` to index its markdown logs); a Basic Memory MCP is configured (`claude mcp list` or `search_notes` tool present) → propose "Basic Memory MCP — search_notes". Confirm the proposal with the user, never write it silently; nothing detected → default `""`.
 
 ### 3. Script shims at `~/.claude/scripts/`
 
@@ -90,3 +91,5 @@ alias skillboard='python3 ~/.claude/scripts/setup-dashboard.py --open'
 ```
 
 Report: per-step status table (configured / skipped / changed), then point at dashboard → Setup tab for the full component reference.
+
+Note: a SessionStart hook nags when setup is incomplete (config/keys/shims missing) and self-silences once init completes. A user who wants the nag gone WITHOUT completing setup mutes it: `touch ~/.claude/skillboard-init-mute` (delete the file to re-enable).

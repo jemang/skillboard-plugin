@@ -152,7 +152,17 @@ def search(query, limit):
     for path, src, title in rows:
         print(f"{path} | {src} | {title}")
     if not rows:
-        print("no match — try different keywords, or grep the memory homes directly", file=sys.stderr)
+        ext = CFG.get("external_memory") or ""
+        hint = (f"also check: {ext}" if ext
+                else "check any external memory MCP configured in this setup, or grep the memory homes")
+        print(f"no match — try different keywords; {hint}", file=sys.stderr)
+        try:  # miss log: evidence trail for skill-evolve's unlock gates
+            import datetime
+            with open(os.path.join(HOME, ".claude", "memory-recall-misses.log"), "a",
+                      encoding="utf-8") as lf:
+                lf.write(f"{datetime.datetime.now().isoformat(timespec='seconds')}\t{query}\n")
+        except OSError:
+            pass
     return 0
 
 

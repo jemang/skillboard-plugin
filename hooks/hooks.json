@@ -36,6 +36,12 @@
           },
           {
             "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/check-init.sh\"; exit 0",
+            "timeout": 10,
+            "statusMessage": "Checking setup completeness"
+          },
+          {
+            "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/memory-index.py\" --quiet >/dev/null 2>&1",
             "timeout": 45,
             "async": true,

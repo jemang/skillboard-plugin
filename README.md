@@ -24,6 +24,12 @@ Portable agent setup — skills, hooks, memory index, and the Skillboard dashboa
 | `templates/CLAUDE-sections.md` | standard CLAUDE.md sections (Memory Routing + naming conventions, Surgical Changes, …) |
 | `AGENTS.md` + `.codex-plugin/` | Codex CLI target: instructions + manual skill index + plugin manifest |
 
+
+
+https://github.com/user-attachments/assets/90e124b2-9977-4559-b0d8-92f91fb59b39
+
+
+
 ## Install (new machine)
 
 Public repo — no auth needed (HTTPS), or use SSH if you have a key set up.

@@ -10,7 +10,7 @@ Portable agent setup — skills, hooks, memory index, and the Skillboard dashboa
 | `skills/persisting-plans` | plans always saved to the repo's `.doc/` |
 | `skills/memory-recall` | indexed lookup of past decisions/gotchas across all memory homes |
 | `skills/self-learning` | research a technology → generate a new skill (w/ ecosystem check) |
-| `skills/skill-evolve` | periodic skill audit: small-model research agents (trends, trending skills, version verify, habit mining) → verified verdicts: refresh, absorb, or flag |
+| `skills/skill-evolve` | periodic skill audit: cheap local usage baseline first (`scripts/skill_usage.py`), then small-model research agents (trends, version verify) only where it finds candidates → verified verdicts: refresh, absorb, or flag |
 | `skills/decision-routes` | evidence-graded options + one recommendation |
 | `skills/lazy-code` | the laziest solution that works — YAGNI ladder, debt markers, one runnable check |
 | `skills/dev-docs` | regenerate a repo's living docs in one pass |
@@ -19,7 +19,8 @@ Portable agent setup — skills, hooks, memory index, and the Skillboard dashboa
 | `hooks/hooks.json` | continuity pointers at session start, plan preservation around compaction, weekly memory-maintenance nag, memory-index refresh, stale-skill freshness nag, `.doc/` naming guard on Write, optional rtk/code-review-graph integration (silent when tools absent). The dashboard is **not** on any hook — run `skillboard` when you want it. |
 | `hooks/enforce-doc-naming.sh` | blocks a `.doc/*.md` write whose name breaks `YYYY-MM-DD-NN-topic-(plan\|design).md`, telling the agent the right name (catches plan-mode's random slug before it lands) |
 | `scripts/memory-index.py` | disposable FTS5 index over memory files (files stay the only truth) |
-| `scripts/setup-dashboard.py` | the Skillboard dashboard → `~/.claude/skillboard.html`; built **on demand** (`skillboard`), never on a hook — no session pays for a page it may not open |
+| `scripts/setup-dashboard.py` | the Skillboard dashboard → `~/.claude/skillboard.html`; maintenance-log UI (design system in `DESIGN.md`, contract in `.impeccable/`) with per-skill usage pills; built **on demand** (`skillboard`), never on a hook — no session pays for a page it may not open |
+| `scripts/skill_usage.py` | counts real skill usage from this machine's session logs (Skill calls + slash commands) — feeds the dashboard pills and skill-evolve's usage baseline |
 | `templates/CLAUDE-sections.md` | standard CLAUDE.md sections (Memory Routing + naming conventions, Surgical Changes, …) |
 | `AGENTS.md` + `.codex-plugin/` | Codex CLI target: instructions + manual skill index + plugin manifest |
 
@@ -58,4 +59,4 @@ Full component reference + recommended companion plugins with live install-statu
 
 ## Updating
 
-Edit here → bump `version` in `.claude-plugin/plugin.json` → push → `/plugin update skillboard` on each machine.
+Edit here → bump `version` in BOTH `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` (`tests/test_manifests.py` enforces the match) → push → `claude plugin update skillboard@skillboard` and `codex plugin add skillboard@skillboard --json` on each machine.

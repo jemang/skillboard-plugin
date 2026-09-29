@@ -17,6 +17,16 @@ import time
 
 H = os.path.expanduser("~")
 OUT = os.path.join(H, ".claude", "skillboard.html")
+MACHINE = os.uname().nodename.split(".")[0]
+
+# inline icons (one stroke set; no unicode-glyph icons)
+ICON_OK = ('<svg class="ic" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5 4.8 9 10 3.5" '
+           'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '
+           'stroke-linejoin="round"/></svg>')
+ICON_WARN = ('<svg class="ic" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.6 11 10.4H1z" '
+             'fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>'
+             '<path d="M6 4.8v2.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>'
+             '<circle cx="6" cy="8.9" r=".7" fill="currentColor"/></svg>')
 DASH_COMMAND = "skillboard"
 
 
@@ -550,9 +560,11 @@ def main():
     prev = safe(load_prev, {})
     n_hooks = sum(n for _, _, n in hk)
     n_hooks_sb = sum(n for s, _, n in hk if s == "skillboard")
+    entry_no = (prev.get("entry") or 0) + 1
     safe(lambda: save_snapshot({"skills": len(sk), "hooks": n_hooks,
                                 "plugins": len(plugins), "mem": mem_total,
-                                "corpus": corpus, "ts": gen_epoch}), None)
+                                "corpus": corpus, "ts": gen_epoch,
+                                "entry": entry_no}), None)
 
     usage = safe(plan_usage, [])
     hue = {"normal": "var(--blue)", "warning": "var(--warn)", "critical": "var(--crit)"}
@@ -561,19 +573,21 @@ def main():
         f'<td class="cell-bar">{bar(p, hue.get(sev, "var(--blue)"))}</td>'
         f'<td class="rst dim">{esc(rs)}</td></tr>'
         for lb, p, sev, rs in usage)
-    usage_html = (f'<h2>Plan Usage</h2><table>{usage_rows}</table>'
-                  '<p class="note">Live from the same source as /usage · Pro plan</p>'
+    usage_html = (f'<aside class="limits"><h2>Plan limits</h2><table>{usage_rows}</table>'
+                  '<p class="note">Live from the same source as /usage · Pro plan</p></aside>'
                   if usage else "")
 
-    # hero status banner: one-line health verdict
+    # daily inspection entry: findings carry their remedy as a log instruction
     issues = []
     for lb, p, sev, _ in usage:
         if sev == "critical":
-            issues.append(f"{lb} at {p}% — nearly maxed")
+            issues.append((f"{lb} at {p}% — nearly maxed", "pause heavy runs until the reset"))
     if days_ago is not None and days_ago > 7:
-        issues.append("weekly /remember:process overdue")
+        issues.append(("weekly memory maintenance overdue",
+                       "run /remember:process, then /remember:evolve"))
     if idx_age is not None and idx_age > 2 * 86400:
-        issues.append("memory index stale >2d")
+        issues.append(("memory index stale >2d",
+                       "run: python3 ~/.claude/scripts/memory-index.py"))
     unknown = []
     if idx_age is None:
         unknown.append("memory index unavailable")
@@ -582,14 +596,27 @@ def main():
     if cfg_raw is None or hk_raw is None:
         unknown.append("plugin settings unavailable")
     if unknown:
-        banner = ('<div class="banner info-b">? Verification unavailable — ' +
-                  " · ".join(esc(i) for i in unknown) + "</div>")
+        stamp = '<div class="stamp unk">UNVERIFIED<small>checks unavailable</small></div>'
+        head = "Inspection incomplete — could not verify:"
+        lines = [(u, "") for u in unknown]
     elif issues:
-        banner = ('<div class="banner warn-b">&#9888; ' +
-                  " · ".join(esc(i) for i in issues) + "</div>")
+        n = len(issues)
+        stamp = (f'<div class="stamp warn">ATTENTION<small>{n} finding{"s" if n > 1 else ""}'
+                 '</small></div>')
+        head, lines = "Findings this inspection:", issues
     else:
-        banner = ('<div class="banner ok-b">&#10003; Setup healthy — memory fresh, '
-                  'maintenance done, no overdue items.</div>')
+        stamp = '<div class="stamp pass">PASSED<small>no findings</small></div>'
+        head, lines = "All systems within limits — memory fresh, maintenance done, no overdue items.", []
+    findings = ('<ol class="findings">' + "".join(
+        f'<li>{esc(prob)}' + (f' <span class="remedy">action: {esc(act)}</span>' if act else '')
+        + '</li>' for prob, act in lines) + '</ol>') if lines else ""
+    banner = (f'<div class="vp"><div class="entry">'
+              f'<div class="entry-date"><span class="d">{time.strftime("%d %b").lower()}</span>'
+              f'<span class="n">entry {entry_no}</span></div>'
+              f'<div class="entry-body">'
+              f'<p class="entry-head">Daily inspection — {esc(MACHINE)}</p>{findings}</div>'
+              f'{stamp}</div>{usage_html}</div>')
+    usage_html = ""
 
     tiles = [
         ("Global skills", len(sk), f"{len(plug_sk)} plugin · {len(loc_sk)} local", "skills", "skills"),
@@ -651,8 +678,8 @@ def main():
         for o in ordered if o in mem_by_origin)
 
     maint = ("<span class='status unknown'>? unable to verify</span>" if days_ago is None else
-             "<span class='status ok'>&#10003; done recently</span>" if days_ago <= 7 else
-             "<span class='status warn'>&#9888; overdue — run /remember:process</span>")
+             f"<span class='status ok'>{ICON_OK} done recently</span>" if days_ago <= 7 else
+             f"<span class='status warn'>{ICON_WARN} overdue — run /remember:process</span>")
     maint_sub = (f"last run {days_ago:.1f}d ago · next due in {due_in:.1f}d"
                  if days_ago is not None else "state unknown")
 
@@ -661,7 +688,7 @@ def main():
     sb_caches = glob.glob(PLUGIN_GLOB)
     sb_ver = os.path.basename(newest_cache(sb_caches)) if sb_caches else ""
     sb_ok = sb_enabled and bool(sb_ver)
-    inst_badge = (f'<span class="pill ok" title="Installed — enabled from cache v{esc(sb_ver)}">&#10003;</span>'
+    inst_badge = (f'<span class="pill ok" title="Installed — enabled from cache v{esc(sb_ver)}">{ICON_OK}</span>'
                   if sb_ok else
                   '<span class="pill" style="color:var(--warn);border-color:var(--warn)">not active</span>')
 
@@ -684,7 +711,7 @@ def main():
         f'<td>{location_button(p)}</td></tr>'
         for n, d, p, stamp in loc_sk)
 
-    ok_badge = '<span class="status ok">&#10003; installed</span>'
+    ok_badge = f'<span class="status ok">{ICON_OK} installed</span>'
     no_badge = '<span class="status warn">not installed</span>'
     rec_rows = "".join(
         f'<tr><td class="mono">{esc(n)}</td>'
@@ -729,7 +756,7 @@ def main():
     else:
         missing = ("not in enabledPlugins" if not sb_enabled else
                    "no cache dir" if not sb_ver else "no skills in cache")
-        plug_status = (f'<div class="banner warn-b">&#9888; skillboard plugin not fully installed ({esc(missing)}) — '
+        plug_status = (f'<div class="banner warn-b">{ICON_WARN} skillboard plugin not fully installed ({esc(missing)}) — '
                        f'run <span class="mono">/plugin install skillboard@skillboard</span> then <span class="mono">/reload-plugins</span>.</div>')
 
     def brain_cell(label, origin):
@@ -756,7 +783,7 @@ def main():
         f'<tr><td>{reader_link(p, f)}</td><td class="dim">{esc(o)}</td>'
         f'<td class="dim">{plan_pill(s)}{esc(s)}</td><td>{location_button(p)}</td></tr>'
         for f, s, p, o in resume[:5])
-    resume_html = (f'<h2>Resume work ({len(resume)})</h2><div class="wrap"><table class="data">'
+    resume_html = (f'<h2>Open work orders ({len(resume)})</h2><div class="wrap"><table class="data">'
                    f'<thead><tr><th>Plan</th><th>Repository</th><th>Status</th><th>Location</th></tr></thead>'
                    f'<tbody>{resume_rows}</tbody></table></div>'
                    '<button class="action-link" onclick="tabgo(\'plans\')">view all plans</button>'
@@ -767,147 +794,209 @@ def main():
 <title>Skillboard</title>
 <script>try{{var _t=localStorage.getItem('sb-theme');
 if(_t)document.documentElement.dataset.theme=_t}}catch(e){{}}</script><style>
-:root {{ --s1:#fcfcfb; --s2:#f1f1ef; --ink:#0b0b0b; --ink2:#52514e; --ink3:#6f6e69;
-  --line:#e2e1dc; --blue:#1f6ec7; --ok:#008300; --warn:#8a5a00; --acc:#b94b20; --crit:#c43f3f; }}
-@media (prefers-color-scheme: dark) {{ :root {{ --s1:#1a1a19; --s2:#232322; --ink:#fff;
-  --ink2:#c3c2b7; --ink3:#aaa89f; --line:#33332f; --blue:#3987e5; --ok:#1baf7a; --warn:#eda100; --acc:#df602b; --crit:#e66767; }} }}
-:root[data-theme=light] {{ --s1:#fcfcfb; --s2:#f1f1ef; --ink:#0b0b0b; --ink2:#52514e;
-  --ink3:#6f6e69; --line:#e2e1dc; --blue:#1f6ec7; --ok:#008300; --warn:#8a5a00; --acc:#b94b20; --crit:#c43f3f; }}
-:root[data-theme=dark] {{ --s1:#1a1a19; --s2:#232322; --ink:#fff; --ink2:#c3c2b7;
-  --ink3:#aaa89f; --line:#33332f; --blue:#3987e5; --ok:#1baf7a; --warn:#eda100; --acc:#df602b; --crit:#e66767; }}
-* {{ box-sizing:border-box; margin:0 }}
-body {{ background:var(--s1); color:var(--ink); font:15px/1.5 -apple-system,'Segoe UI',sans-serif;
-  max-width:1000px; margin:0 auto; padding:28px 20px 64px }}
-header {{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px }}
-h1 {{ font-size:20px; letter-spacing:-.02em; font-weight:700 }}
-h2 {{ font-size:12px; text-transform:uppercase; letter-spacing:.12em; color:var(--acc);
-  font-weight:650; margin:26px 0 10px }}
+:root {{ --paper:#e6ece2; --ink:#182230; --ink2:#3d4a56; --ink3:#5d6a70;
+  --rule:rgba(61,90,70,.38); --rule2:rgba(61,90,70,.55); --stamp:#9b2c1f; --pass:#2e5a3c;
+  --link:#1f3a5f; --warnc:#8a5a00; --crit:#9b2c1f; --ok:#2e5a3c; --warn:#8a5a00; --blue:#1f3a5f;
+  --s2:rgba(24,34,48,.05); --line:var(--rule); --acc:var(--stamp);
+  color-scheme:light }}
+@media (prefers-color-scheme: dark) {{ :root {{ --paper:#101820; --ink:#d4dbd0; --ink2:#a8b2ac;
+  --rule:rgba(107,138,116,.32); --rule2:rgba(107,138,116,.5); --stamp:#d06557; --pass:#5aa77a;
+  --link:#7ea3c9; --warnc:#d9a13c; --crit:#d06557; --ok:#5aa77a; --warn:#d9a13c; --blue:#7ea3c9;
+  --ink3:#8b968f; --s2:rgba(212,219,208,.06);
+  color-scheme:dark }} }}
+:root[data-theme=light] {{ --paper:#e6ece2; --ink:#182230; --ink2:#3d4a56; --ink3:#5d6a70;
+  --rule:rgba(61,90,70,.38); --rule2:rgba(61,90,70,.55); --stamp:#9b2c1f; --pass:#2e5a3c;
+  --link:#1f3a5f; --warnc:#8a5a00; --crit:#9b2c1f; --ok:#2e5a3c; --warn:#8a5a00; --blue:#1f3a5f;
+  --s2:rgba(24,34,48,.05);
+  color-scheme:light }}
+:root[data-theme=dark] {{ --paper:#101820; --ink:#d4dbd0; --ink2:#a8b2ac; --ink3:#8b968f;
+  --rule:rgba(107,138,116,.32); --rule2:rgba(107,138,116,.5); --stamp:#d06557; --pass:#5aa77a;
+  --link:#7ea3c9; --warnc:#d9a13c; --crit:#d06557; --ok:#5aa77a; --warn:#d9a13c; --blue:#7ea3c9;
+  --s2:rgba(212,219,208,.06);
+  color-scheme:dark }}
+* {{ box-sizing:border-box; margin:0; scrollbar-width:thin; scrollbar-color:var(--ink3) transparent }}
+::selection {{ background:color-mix(in srgb, var(--stamp) 26%, transparent) }}
+body {{ background:var(--paper); color:var(--ink);
+  font:15px/1.55 -apple-system,'Segoe UI',sans-serif; font-variant-numeric:tabular-nums;
+  max-width:1000px; margin:0 auto; padding:26px 24px 72px 56px; position:relative;
+  caret-color:var(--stamp); accent-color:var(--stamp) }}
+body::before {{ content:''; position:fixed; top:0; bottom:0;
+  left:max(12px, calc(50% - 500px + 32px)); width:1px;
+  background:color-mix(in srgb, var(--stamp) 45%, transparent); pointer-events:none }}
+header {{ display:flex; justify-content:space-between; align-items:baseline; gap:12px;
+  flex-wrap:wrap; border-bottom:3px double var(--rule2); padding-bottom:10px; margin-bottom:0 }}
+h1 {{ font-size:21px; letter-spacing:-.02em; font-weight:750 }}
+h1 .log-sub {{ font-size:13px; font-weight:500; color:var(--ink2); letter-spacing:0; margin-left:8px }}
+h2 {{ font-size:14px; font-weight:750; color:var(--ink); margin:34px 0 10px; padding-bottom:5px;
+  border-bottom:3px double var(--rule2) }}
+.ic {{ width:12px; height:12px; vertical-align:-1px; margin-right:4px }}
 .gen {{ color:var(--ink3); font-size:12px }}
-.gen.stale {{ color:var(--warn); font-weight:600 }}
-.banner {{ border-radius:8px; padding:10px 14px; font-size:13.5px; font-weight:600;
-  margin-bottom:16px; border:1px solid }}
-.banner.ok-b {{ color:var(--ok); border-color:var(--ok); background:color-mix(in srgb, var(--ok) 8%, transparent) }}
-.banner.warn-b {{ color:var(--warn); border-color:var(--warn); background:color-mix(in srgb, var(--warn) 8%, transparent) }}
-.banner.info-b {{ color:var(--ink2); border-color:var(--line); background:var(--s2) }}
+.gen.stale {{ color:var(--warnc); font-weight:600 }}
+.machine {{ color:var(--ink2); font-size:12px; margin-right:10px }}
+.vp {{ display:grid; grid-template-columns:2fr 1fr; gap:0 44px; align-items:stretch;
+  border-bottom:1px solid var(--rule) }}
+.vp .limits h2 {{ margin-top:14px; border-bottom:1px solid var(--rule) }}
+.vp .limits table {{ font-size:12px }}
+.vp .limits td {{ padding-right:6px }}
+.vp .limits td:first-child {{ white-space:nowrap }}
+.vp .limits td.cell-bar {{ width:24% }}
+.vp .limits td.rst {{ width:auto; font-size:11px }}
+.entry {{ display:grid; grid-template-columns:58px 1fr auto; gap:8px 20px; align-items:center;
+  padding:18px 0 16px }}
+.entry-date {{ align-self:start; padding-top:3px; font-size:12px; color:var(--ink2);
+  border-right:1px solid var(--rule); padding-right:12px; min-height:100% }}
+.entry-date span {{ display:block; white-space:nowrap }}
+.entry-date .n {{ color:var(--ink3); font-size:11px; margin-top:2px }}
+.entry-head {{ font-size:16px; font-weight:700; margin-bottom:5px }}
+.findings {{ padding-left:22px; font-size:13.5px; color:var(--ink2) }}
+.findings li {{ margin:3px 0 }}
+.remedy {{ color:var(--ink); font-weight:650; text-decoration:underline;
+  text-decoration-thickness:1px; text-underline-offset:3px }}
+.stamp {{ justify-self:end; border:2.5px solid currentColor; box-shadow:inset 0 0 0 1.5px currentColor;
+  padding:11px 22px 12px; transform:rotate(-2.5deg); text-align:center; opacity:.92;
+  font-weight:800; font-size:19px; letter-spacing:.15em; line-height:1.15; white-space:nowrap;
+  animation:stamp-in .45s cubic-bezier(.16,1,.3,1) both }}
+@keyframes stamp-in {{ from {{ transform:rotate(-2.5deg) scale(1.5); opacity:.35 }}
+  to {{ transform:rotate(-2.5deg) scale(1); opacity:.92 }} }}
+.stamp small {{ display:block; font-size:11px; font-weight:650; letter-spacing:.08em }}
+.stamp.warn {{ color:var(--stamp) }} .stamp.pass {{ color:var(--pass) }} .stamp.unk {{ color:var(--ink3) }}
+.banner {{ padding:10px 0; font-size:13.5px; font-weight:600; margin-bottom:4px;
+  border-bottom:1px solid var(--rule) }}
+.banner.ok-b {{ color:var(--pass) }}
+.banner.warn-b {{ color:var(--stamp) }}
+.banner.info-b {{ color:var(--ink2) }}
 .delta {{ color:var(--ink3); font-size:15px; font-weight:400; text-decoration:line-through }}
-.pill {{ display:inline-block; border:1px solid var(--line); color:var(--ink3);
-  border-radius:99px; padding:0 8px; font-size:10px; letter-spacing:.06em; font-weight:650;
-  vertical-align:1px; white-space:nowrap; flex:none }}
-.pill.ok {{ color:var(--ok); border-color:var(--ok) }}
-td.pct {{ width:5ch; text-align:right; font-size:12px }}
+.pill {{ display:inline-block; color:var(--ink3); font-size:11px; font-style:italic;
+  white-space:nowrap; flex:none }}
+.pill::before {{ content:'[' }} .pill::after {{ content:']' }}
+.pill.ok {{ color:var(--pass); font-style:normal }}
+.pill[style] {{ color:var(--stamp) !important; border:none !important; font-style:normal;
+  font-weight:700; font-size:11px; letter-spacing:.04em }}
+td.pct {{ width:5ch; text-align:right; font-size:12.5px; font-weight:650 }}
 td.rst {{ width:15ch; text-align:right; font-size:12px; white-space:nowrap }}
-.badge {{ display:inline-block; background:var(--s2); border:1px solid var(--line);
-  border-radius:99px; padding:0 7px; font-size:10.5px; margin-left:6px; color:var(--ink2) }}
-.badge.warn-d {{ color:var(--warn); border-color:var(--warn) }}
-.cards {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px }}
-.card {{ background:var(--s2); border:1px solid var(--line); border-radius:10px; padding:12px 14px }}
+.badge {{ display:inline-block; font-size:11px; margin-left:7px; color:var(--ink3);
+  font-weight:650 }}
+.badge::before {{ content:'(' }} .badge::after {{ content:')' }}
+.badge.warn-d {{ color:var(--stamp) }}
+.cards {{ display:grid; grid-template-columns:1fr 1fr; gap:0 40px }}
+.card {{ border-bottom:1px solid var(--rule); padding:9px 0 8px }}
 .card-head {{ display:flex; align-items:center; gap:8px; flex-wrap:wrap }}
 .card-name {{ font-weight:650; flex:1 1 auto; min-width:0; word-break:break-word }}
 .card-desc.full {{ display:block; -webkit-line-clamp:unset }}
-.card-desc {{ font-size:12.5px; margin:6px 0 4px; display:-webkit-box; -webkit-line-clamp:3;
-  -webkit-box-orient:vertical; overflow:hidden }}
-.source {{ color:var(--blue); font-size:11px; font-weight:650; text-decoration:none; white-space:nowrap }}
+.card-desc {{ font-size:12.5px; color:var(--ink2); margin:4px 0 2px; display:-webkit-box;
+  -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden }}
+.source {{ color:var(--link); font-size:12px; font-weight:650; text-decoration:none; white-space:nowrap }}
 .source:hover {{ text-decoration:underline }}
 button.reader-open {{ background:none; border:0; padding:0; cursor:pointer; text-align:left }}
-button.location {{ background:none; border:1px solid var(--line); border-radius:6px; color:var(--ink2);
-  cursor:pointer; font-size:11px; padding:2px 7px; white-space:nowrap }}
-button.location:hover {{ color:var(--blue); border-color:var(--blue) }}
-button.copy {{ background:var(--acc); color:#fff; border:none; border-radius:6px;
-  padding:3px 10px; font-size:11px; font-weight:650; cursor:pointer;
-  white-space:nowrap; flex:none }}
-button.copy:active {{ opacity:.7 }}
+button.location {{ background:none; border:1px solid var(--rule2); color:var(--ink2);
+  cursor:pointer; font-size:12px; padding:2px 8px; white-space:nowrap }}
+button.location:hover {{ color:var(--link); border-color:var(--link) }}
+button.copy {{ background:none; border:1px solid var(--ink); color:var(--ink);
+  padding:2px 10px; font-size:12px; font-weight:650; cursor:pointer; white-space:nowrap; flex:none }}
+button.copy:active {{ opacity:.6 }}
 .steps li {{ margin:6px 0 }}
 .steps {{ padding-left:22px }}
-td.inst {{ font-size:11px; max-width:34ch; white-space:normal; word-break:break-word }}
-button#th {{ background:var(--s2); color:var(--ink2); border:1px solid var(--line);
-  border-radius:6px; padding:4px 10px; cursor:pointer; font-size:12px }}
-nav {{ display:flex; flex-wrap:wrap; gap:4px; border-bottom:1px solid var(--line);
-  margin-bottom:20px }}
-nav a {{ padding:8px 14px; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
-  color:var(--ink3); text-decoration:none; border-bottom:2px solid transparent; cursor:pointer }}
-nav a.on {{ color:var(--ink); border-bottom-color:var(--blue) }}
-nav a:hover {{ color:var(--ink2) }}
+td.inst {{ font-size:12px; max-width:34ch; white-space:normal; word-break:break-word }}
+button#th {{ background:none; color:var(--ink2); border:1px solid var(--rule2);
+  padding:3px 10px; cursor:pointer; font-size:12px }}
+nav {{ display:flex; flex-wrap:wrap; gap:6px; border-bottom:1px solid var(--rule2);
+  margin:0 0 22px; padding:14px 0 0 }}
+nav a {{ padding:6px 14px 7px; font-size:13.5px; font-weight:600; color:var(--ink3);
+  text-decoration:none; cursor:pointer; border:1px solid transparent; border-bottom:none;
+  margin-bottom:-1px; position:relative; top:1px }}
+nav a.on {{ color:var(--ink); border-color:var(--rule2); background:var(--paper);
+  border-bottom:1px solid var(--paper) }}
+nav a:hover {{ color:var(--ink) }}
 nav a:focus-visible, button:focus-visible, summary:focus-visible, .flink:focus-visible, .source:focus-visible {{
-  outline:2px solid var(--blue); outline-offset:2px; border-radius:4px }}
+  outline:2px solid var(--link); outline-offset:2px }}
 details.fold summary {{ cursor:pointer; font-size:12.5px; color:var(--ink2); padding:4px 0;
   list-style:none }}
 details.fold summary::-webkit-details-marker {{ display:none }}
-details.fold summary::before {{ content:'\\25B8'; display:inline-block; width:14px;
-  color:var(--ink3); transition:transform .15s ease }}
+details.fold summary::before {{ content:''; display:inline-block; width:10px; height:10px;
+  margin-right:4px; vertical-align:-1px; background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M4 2.5 8 6 4 9.5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M4 2.5 8 6 4 9.5' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;
+  transition:transform .15s ease }}
 details.fold[open] summary::before {{ transform:rotate(90deg) }}
 details.fold summary:hover {{ color:var(--ink) }}
-@media (prefers-reduced-motion: reduce) {{ * {{ transition:none !important }} }}
+@media (prefers-reduced-motion: reduce) {{ * {{ transition:none !important; animation:none !important }} }}
 section {{ display:none }} section.on {{ display:block }}
-.tiles {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px }}
-.tile {{ background:var(--s2); border:1px solid var(--line); border-radius:10px; padding:14px 16px }}
-.tile-link {{ color:var(--ink); cursor:pointer; font:inherit; text-align:left }}
-.tile-link:hover {{ border-color:var(--blue) }}
-.tile-num {{ font-size:30px; font-weight:650; letter-spacing:-.02em;
-  font-variant-numeric:tabular-nums; display:block }}
-.tile-label {{ color:var(--ink2); font-size:13px; display:block }}
-.tile-sub {{ color:var(--ink3); font-size:11px; margin-top:2px; display:block }}
+.tiles {{ display:grid; grid-template-columns:1fr 1fr; gap:0 40px; margin-top:4px }}
+.tile {{ display:flex; align-items:baseline; gap:10px; border:0;
+  border-bottom:1px solid var(--rule); padding:9px 0 8px; background:none }}
+.tile-link {{ color:var(--ink); cursor:pointer; font:inherit; text-align:left; width:100% }}
+.tile-link:hover .tile-label {{ text-decoration:underline; text-underline-offset:3px }}
+.tile-num {{ order:3; margin-left:auto; font-size:21px; font-weight:750; letter-spacing:-.01em }}
+.tile-label {{ order:1; color:var(--ink); font-size:14px; font-weight:600 }}
+.tile-sub {{ order:2; color:var(--ink3); font-size:12px }}
 table {{ width:100%; border-collapse:collapse; font-size:13.5px }}
-th, td {{ padding:6px 10px 6px 0; border-bottom:1px solid var(--line); vertical-align:top }}
-th {{ color:var(--ink3); font-size:11px; font-weight:650; letter-spacing:.05em; text-align:left; text-transform:uppercase }}
-td.num {{ text-align:right; font-variant-numeric:tabular-nums; width:4ch }}
+th, td {{ padding:6px 10px 6px 0; border-bottom:1px solid var(--rule); vertical-align:top }}
+th {{ color:var(--ink3); font-size:12px; font-weight:650; text-align:left }}
+td.num {{ text-align:right; width:4ch; font-weight:650 }}
 td.cell-bar {{ width:38% }}
 .mono {{ font-family:ui-monospace,Menlo,monospace; font-size:12.5px; white-space:nowrap }}
 .dim {{ color:var(--ink2) }}
 .flink {{ color:var(--ink); text-decoration:none; border-bottom:1px dotted var(--ink3) }}
-.flink:hover {{ color:var(--blue); border-bottom-color:var(--blue) }}
+.flink:hover {{ color:var(--link); border-bottom-color:var(--link) }}
 button.jump {{ background:none; border:none; padding:0; font:inherit; color:var(--ink);
   border-bottom:1px dotted var(--ink3); cursor:pointer }}
-button.jump:hover {{ color:var(--blue); border-bottom-color:var(--blue) }}
-.meter {{ background:var(--s2); border:1px solid var(--line); border-radius:4px; height:12px;
-  overflow:hidden }}
-.meter-fill {{ height:100% }}
-.status.ok {{ color:var(--ok); font-weight:600 }}
-.status.warn {{ color:var(--warn); font-weight:600 }}
-.status.unknown {{ color:var(--ink2); font-weight:600 }}
-.action-link {{ background:none; border:1px solid var(--blue); border-radius:6px; color:var(--blue);
-  cursor:pointer; font-size:11px; font-weight:650; padding:3px 10px; white-space:nowrap }}
-.action-link:hover {{ background:color-mix(in srgb, var(--blue) 8%, transparent) }}
-.reader {{ background:var(--s1); border:1px solid var(--line); border-radius:12px; color:var(--ink);
+button.jump:hover {{ color:var(--link); border-bottom-color:var(--link) }}
+.meter {{ height:7px; border-top:1px solid var(--rule); border-bottom:1px solid var(--rule);
+  background:none }}
+.meter-fill {{ height:100%; background:var(--ink2) }}
+.status.ok {{ color:var(--pass); font-weight:650 }}
+.status.warn {{ color:var(--stamp); font-weight:650 }}
+.status.unknown {{ color:var(--ink2); font-weight:650 }}
+.action-link {{ background:none; border:1px solid var(--link); color:var(--link);
+  cursor:pointer; font-size:12px; font-weight:650; padding:3px 10px; white-space:nowrap }}
+.action-link:hover {{ background:color-mix(in srgb, var(--link) 8%, transparent) }}
+.reader {{ background:var(--paper); border:1px solid var(--rule2); color:var(--ink);
   max-width:min(860px,calc(100vw - 32px)); max-height:calc(100vh - 32px); padding:0; width:860px }}
-.reader::backdrop {{ background:rgb(0 0 0 / .45) }}
-.reader-head {{ align-items:flex-start; border-bottom:1px solid var(--line); display:flex; gap:16px;
-  justify-content:space-between; padding:18px 20px 14px }}
-.reader-title {{ font-size:17px; letter-spacing:-.02em; margin:0 }}
-.reader-path {{ color:var(--ink3); font-size:11px; margin-top:4px; overflow-wrap:anywhere; white-space:normal }}
-.reader-close {{ background:var(--s2); border:1px solid var(--line); border-radius:6px; color:var(--ink2);
-  cursor:pointer; font-size:12px; padding:4px 9px }}
-.reader-actions {{ display:flex; flex-wrap:wrap; gap:7px; padding:12px 20px; border-bottom:1px solid var(--line) }}
-.reader-actions a {{ color:var(--blue); font-size:12px; font-weight:650; text-decoration:none }}
+.reader::backdrop {{ background:rgb(10 14 12 / .5) }}
+.reader-head {{ align-items:flex-start; border-bottom:3px double var(--rule2); display:flex; gap:16px;
+  justify-content:space-between; padding:18px 20px 12px }}
+.reader-title {{ font-size:17px; letter-spacing:-.01em; margin:0; border:none; padding:0 }}
+.reader-path {{ color:var(--ink3); font-size:12px; margin-top:4px; overflow-wrap:anywhere; white-space:normal }}
+.reader-close {{ background:none; border:1px solid var(--rule2); color:var(--ink2);
+  cursor:pointer; font-size:12px; padding:4px 10px }}
+.reader-actions {{ display:flex; flex-wrap:wrap; gap:7px; padding:12px 20px; border-bottom:1px solid var(--rule) }}
+.reader-actions a {{ color:var(--link); font-size:12px; font-weight:650; text-decoration:none }}
 .reader-body {{ font-size:14px; line-height:1.6; overflow:auto; padding:18px 20px 26px }}
-.reader-body h1,.reader-body h2,.reader-body h3 {{ color:var(--ink); letter-spacing:-.02em; margin:18px 0 8px;
-  text-transform:none }}
+.reader-body h1,.reader-body h2,.reader-body h3 {{ color:var(--ink); letter-spacing:-.01em; margin:18px 0 8px;
+  border:none; padding:0; text-transform:none }}
 .reader-body h1 {{ font-size:22px }} .reader-body h2 {{ font-size:18px }} .reader-body h3 {{ font-size:15px }}
 .reader-body p,.reader-body ul {{ margin:0 0 12px }} .reader-body ul {{ padding-left:22px }}
-.reader-body pre {{ background:var(--s2); border:1px solid var(--line); border-radius:8px; overflow:auto; padding:12px }}
+.reader-body pre {{ background:var(--s2); border:1px solid var(--rule); overflow:auto; padding:12px }}
 .reader-body code {{ font-family:ui-monospace,Menlo,monospace; font-size:.9em }}
-.reader-truncated {{ color:var(--warn); font-size:12px; font-weight:650 }}
+.reader-truncated {{ color:var(--warnc); font-size:12px; font-weight:650 }}
 .half {{ max-width:560px }}
-tr.grp td {{ font-weight:650; border-top:2px solid var(--line); padding-top:8px }}
-tr.grp td.sb {{ color:var(--acc) }}
-.group-count {{ color:var(--ink3); font-size:11px; font-weight:400; margin-left:6px }}
+tr.grp td {{ font-weight:650; border-top:2px solid var(--rule2); padding-top:8px }}
+tr.grp td.sb {{ color:var(--ink) }}
+.group-count {{ color:var(--ink3); font-size:12px; font-weight:400; margin-left:6px }}
 tr.sub td {{ padding-top:3px; padding-bottom:3px; font-size:13px }}
 td.ind {{ width:16px }}
 .note {{ color:var(--ink3); font-size:12px; margin-top:6px }}
 .result {{ color:var(--ink3); font-size:12px; margin:-4px 0 8px }}
 .grid2 {{ display:grid; grid-template-columns:1fr 1fr; gap:0 40px }}
 @media (max-width:720px) {{
-  .grid2 {{ grid-template-columns:1fr }}
-  table.data .mono {{ white-space:normal; overflow-wrap:anywhere }}
-  table.data td {{ overflow-wrap:anywhere }}
+  body {{ padding-left:32px }}
+  body::before {{ left:16px }}
+  .grid2, .cards, .tiles, .vp {{ grid-template-columns:1fr }}
+  .entry {{ grid-template-columns:1fr }}
+  .entry-date {{ border-right:none; display:flex; gap:10px; padding:0 }}
+  .entry-date .n {{ margin-top:0 }}
+  .stamp {{ justify-self:start; margin-top:6px }}
+  table.data .mono {{ white-space:normal; overflow-wrap:break-word }}
+  table.data td {{ overflow-wrap:break-word }}
 }}
 .wrap {{ overflow-x:auto }}
-input.filter, select.filter {{ background:var(--s2); color:var(--ink); border:1px solid var(--line);
-  border-radius:6px; padding:6px 12px; font-size:13px; width:280px; max-width:100%;
-  margin-bottom:10px }}
-input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outline-offset:1px }}
+input.filter, select.filter {{ background:none; color:var(--ink); border:1px solid var(--rule2);
+  padding:6px 12px; font-size:13px; width:280px; max-width:100%; margin-bottom:10px }}
+input.filter::placeholder {{ color:var(--ink3) }}
+input.filter:focus, select.filter:focus {{ outline:2px solid var(--link); outline-offset:1px }}
 </style></head><body data-gen="{gen_epoch}">
-<header><h1>Skill<span style="color:var(--acc)">board</span></h1>
-<div><span class="gen" id="age">generated {now}</span>
+<header><h1>Skillboard<span class="log-sub">maintenance log</span></h1>
+<div><span class="machine mono">{esc(MACHINE)}</span><span class="gen" id="age">generated {now}</span>
 <button id="th" onclick="t()" aria-label="Switch between light and dark theme"
  aria-pressed="false" title="Switch between light and dark theme">theme</button></div></header>
 
@@ -938,7 +1027,7 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 <div class="tiles">{tiles_html}</div>
 {usage_html}
 {resume_html}
-<h2>Hooks ({n_hooks})</h2>
+<h2>Wiring — hooks ({n_hooks})</h2>
 <details class="fold"><summary>Per-plugin breakdown — skillboard runs {n_hooks_sb} of {n_hooks}</summary>
 <table class="half">{hooks_rows_html}</table></details>
 <p class="note">Built on demand — run <span class="mono">{DASH_COMMAND}</span> to refresh this page. Session start refreshes only the memory index.</p>
@@ -954,7 +1043,7 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 <tr><td class="dim" colspan="3">{esc(maint_sub)}</td></tr>{brain_rows}</table>
 <p class="note">Brain: /remember:process weekly → /remember:evolve</p>
 </div></div>
-<h2>Stored memories ({mem_total})</h2>
+<h2>Memory ledger ({mem_total})</h2>
 <select id="memsel" class="filter" onchange="memflt()" aria-label="Filter memories by origin">{mem_opts}</select>
 <p id="memcount" class="result" aria-live="polite"></p>
 <div class="wrap"><table id="memtab" class="data"><thead><tr><th>Memory</th><th>Source</th><th>Origin</th><th>Location</th></tr></thead><tbody>{mem_rows}</tbody></table></div>
@@ -963,14 +1052,14 @@ input.filter:focus, select.filter:focus {{ outline:2px solid var(--blue); outlin
 
 <section id="skills">
 {plug_status}
-<h2>Plugin skills ({len(plug_sk)})</h2>
+<h2>Equipment — plugin skills ({len(plug_sk)})</h2>
 <p class="note">usage pills: this machine's session logs (Skill calls + slash commands, plugin prefix stripped); "never used" = no invocation in retained history</p>
 <div class="cards">{plug_cards}</div>
-<h2>Local skills ({len(loc_sk)})</h2>
+<h2>Equipment — local skills ({len(loc_sk)})</h2>
 <input class="filter" placeholder="filter local skills…" oninput="flt(this,'sktab','skcount')" aria-label="Filter local skills">
 <p id="skcount" class="result" aria-live="polite"></p>
 <div class="wrap"><table id="sktab" class="data"><thead><tr><th>Skill</th><th>Description</th><th>Location</th></tr></thead><tbody>{skills_rows}</tbody></table></div>
-<p class="note">&#10003; installed = plugin enabled + skill in cache v{esc(sb_ver)}, registered as <span class="mono">skillboard:&lt;name&gt;</span> · after install/update run <span class="mono">/reload-plugins</span>. Click a skill to read it here; use location to find the file later.</p>
+<p class="note">{ICON_OK} installed = plugin enabled + skill in cache v{esc(sb_ver)}, registered as <span class="mono">skillboard:&lt;name&gt;</span> · after install/update run <span class="mono">/reload-plugins</span>. Click a skill to read it here; use location to find the file later.</p>
 </section>
 
 <section id="how">
